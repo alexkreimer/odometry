@@ -9,7 +9,8 @@
     /      \
    A<------>B
 ```
-  Current match procedure works like this  
+
+Current match procedure works like this  
   * A vs. B are matched based on the L2 (or other) distance with epipolar constraint
   * A and B independently matched back to the model and the match is considered a match only if both matched the same 3d point C.
 
@@ -19,5 +20,5 @@ We discussed 2 ways to improve this matching
 
 
 - [ ] Discovery of new features:
-- For each stereo pair keep along the list of 3d points that did not match anything in the dictionary
-- Given a new pair of images (and the 3d of its feature points) we may verify which 3d points comply with the calculated 3d motion.  If we saw some points comply in a number of frames, we may add it to the model.
+* For each stereo pair keep along the list of 3d points that did not match anything in the dictionary
+* Given a new pair of images (and the 3d of its feature points) we may verify which 3d points comply with the calculated 3d motion.  If we saw some points comply in a number of frames, we may add it to the model.

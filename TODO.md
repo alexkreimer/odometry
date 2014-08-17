@@ -9,8 +9,8 @@
     /      \
    A<------>B
 ```
-Current match procedure works like this
-* A vs. B are matched based on the L2 (or other) distance with epipolar constraint.
+  Current match procedure works like this  
+  * A vs. B are matched based on the L2 (or other) distance with epipolar constraint.
 * A and B independently matched back to the model and the match is considered a match only if both matched the same 3d point C.
 
 We discussed 2 ways to improve this matching

@@ -22,3 +22,5 @@ We discussed 2 ways to improve this matching
 - [ ] Discovery of new features:
 * For each stereo pair keep along the list of 3d points that did not match anything in the dictionary
 * Given a new pair of images (and the 3d of its feature points) we may verify which 3d points comply with the calculated 3d motion.  If we saw some points comply in a number of frames, we may add it to the model.
+
+- [ ] Normal calculation. Normals may be used to uderstand whether this current feature points is currently visible or it is not.  Approx the shape locally by a plane that passes through current point and some of its neighbors.

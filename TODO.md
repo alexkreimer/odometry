@@ -1,17 +1,17 @@
 ##TODO
 
 - [ ] Feature match asessment/improvement.  Let C be the 3d point (a part of the model) with its photometric descriptors (SIFT, etc) and A, B be the features in the 1st and 2nd images respectively:
-```
-         C
-         /\
-        /  \
-       /    \
-      /      \
-     A<------>B
-```
+  ```
+           C
+           /\
+          /  \
+         /    \
+        /      \
+       A<------>B
+  ```
 Current match procedure works like this
 * A vs. B are matched based on the L2 (or other) distance with epipolar constraint.
-* A and B independently matched back to the model and the match is considered a match only if both matched the same 3d point XX.
+* A and B independently matched back to the model and the match is considered a match only if both matched the same 3d point C.
 
 We discussed 2 ways to improve this matching
 * If any one of the links is missing it is possible to complete it based on the available information.  I will try to do this and analyze if this gives us a better match.

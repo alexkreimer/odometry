@@ -10,12 +10,12 @@
    A<------>B
 ```
   Current match procedure works like this  
-  * A vs. B are matched based on the L2 (or other) distance with epipolar constraint.
-* A and B independently matched back to the model and the match is considered a match only if both matched the same 3d point C.
+  * A vs. B are matched based on the L2 (or other) distance with epipolar constraint
+  * A and B independently matched back to the model and the match is considered a match only if both matched the same 3d point C.
 
-We discussed 2 ways to improve this matching
-* If any one of the links is missing it is possible to complete it based on the available information.  I will try to do this and analyze if this gives us a better match.
-* Filter the matches based on the reprojection error (as a result of rigid motion that is estimated in the end of the algorithm).  Again, I will analyze the performance.
+We discussed 2 ways to improve this matching  
+  * If any one of the links is missing it is possible to complete it based on the available information.  I will try to do this and analyze if this gives us a better match.
+  * Filter the matches based on the reprojection error (as a result of rigid motion that is estimated in the end of the algorithm).  Again, I will analyze the performance.
 
 
 - [ ] Discovery of new features:

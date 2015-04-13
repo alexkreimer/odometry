@@ -1,0 +1,49 @@
+\message{ !name(text.tex)}\documentclass[10pt]{article}         %% What type of document you're writing.
+
+%%%%% Preamble
+
+%% Packages to use
+
+\usepackage{amsmath,amsfonts,amssymb,mathtools}   %% AMS mathematics macros
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usetikzlibrary{decorations.pathreplacing,matrix}
+\usetikzlibrary{decorations.pathmorphing}
+\usetikzlibrary{decorations.text}
+
+\tikzset{ 
+  table/.style={
+    matrix of math nodes,
+    row sep=-\pgflinewidth,
+    column sep=-\pgflinewidth,
+    nodes={rectangle,text width=3em,align=center},
+    text depth=1.0ex,
+    text height=1.0ex,
+    nodes in empty cells,
+    left delimiter=[,
+    right delimiter={]},
+  }
+}
+
+\DeclarePairedDelimiter\abs{\lvert}{\rvert}%
+\DeclarePairedDelimiter\norm{\lVert}{\rVert}%
+\newtheorem{exmp}{Example}[section]
+%% Title Information.
+
+\title{A better visual odometry with bundle adjustment and uncertainty modeling}
+\author{Ilan Shimshoni, Ehud Rivlin, Alex Kreimer}
+
+\begin{document}
+
+\message{ !name(text.tex) !offset(11) }
+$\theta=[a_1^T,\dotsc,a_n^T,b_1^T, \dotsc,b_m^T]^T
+\message{ !name(text.tex) !offset(326) }
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:

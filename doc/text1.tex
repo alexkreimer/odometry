@@ -1,0 +1,80 @@
+\documentclass[10pt]{article}         %% What type of document you're writing.
+
+%%%%% Preamble
+
+%% Packages to use
+
+\usepackage{amsmath,amsfonts,amssymb,mathtools}   %% AMS mathematics macros
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\DeclarePairedDelimiter\abs{\lvert}{\rvert}%
+\DeclarePairedDelimiter\norm{\lVert}{\rVert}%
+
+%% Title Information.
+
+\title{Report: Visual Odometry Implementation}
+\author{Ehud Rivlin, Alex Kreimer}
+
+%%%%% The Document
+
+\begin{document}
+
+\maketitle
+
+\section{Rotation matrices}
+\label{sec: rot_mat}
+We use Euler angles to parameterize the rotation $\mathbf{r} = [r_x,r_y,r_z]$. To simplify the formulas we adopt this notation:
+\begin{align*}
+  c_x &= cos(r_x) & c_y &= cos(r_y) & c_z&=cos(r_z) \\
+  s_x &= sin(r_x) & s_y &= sin(r_y) & s_z&=sin(r_z)
+\end{align*}
+
+\begin{align*}
+R_x&= R(r_x) = 
+\begin{bmatrix}
+1& 0& 0\\
+0& c_x& -s_x\\
+0& s_x& c_x
+\end{bmatrix} &\frac{\partial R_x}{\partial r_x} = \begin{bmatrix}
+0& 0& 0\\
+0& -s_x& -c_x\\
+0& c_x& -s_x
+\end{bmatrix}\\
+R_y&=R_y(r_y) = \begin{bmatrix}
+c_y& 0& s_y\\
+0& 1& 0\\
+-s_y& 0& c_y
+\end{bmatrix} &\frac{\partial R_y}{\partial r_y} = \begin{bmatrix}
+-s_y& 0& c_y\\
+0& 0& 0\\
+-c_y& 0& -s_y
+\end{bmatrix}\\
+R_z &= R_z(r_z) = \begin{bmatrix}
+c_z& -c_z& 0\\
+c_z& c_z& 0\\
+0& 0& 1
+\end{bmatrix} &\frac{\partial R_y}{\partial r_y} = \begin{bmatrix}
+-c_z& -c_z& 0\\
+c_z& -c_z& 0\\
+0& 0& 1
+\end{bmatrix}
+\end{align*}
+
+\subsection{Derivative of camera projection}
+\begin{align*}
+\frac{\partial \pi^{(l)}}{\partial r_x} &= K*\frac{\partial }{\partial r_x}\Big[R(r),t\Big]*X_i\\
+&= \begin{bmatrix} f& 0& c_u\\ 0& f& c_v\\0& 0& 1\\ \end{bmatrix}\begin{bmatrix}
+0& 0& 0& 0\\
+-s_xs_z+c_zc_xs_y& -s_xc_z-c_xs_ys_z& -c_yc_x&0\\
+s_xs_z+s_xc_zs_y& c_zc_x-s_xs_ys_z& -s_xc_y&0
+\end{bmatrix}\begin{bmatrix}X\\Y\\Z\\1\end{bmatrix}\\
+&=\begin{bmatrix} f& 0& c_u\\ 0& f& c_v\\0& 0& 1\\ \end{bmatrix}\begin{bmatrix}
+0\\
+X(-s_xs_z+c_zc_xs_y)-Y(s_xc_z+c_xs_ys_z)-Zc_yc_x\\
+X(s_xs_z+s_xc_zs_y)+Y(c_zc_x-s_xs_ys_z)-Zs_xc_y
+\end{bmatrix}\\
+\end{align*}
+
+\end{document}

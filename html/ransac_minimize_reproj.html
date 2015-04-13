@@ -1,0 +1,454 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>ransac_minimize_reproj</title><meta name="generator" content="MATLAB 8.4"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2015-04-06"><meta name="DC.source" content="ransac_minimize_reproj.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h2>Contents</h2><div><ul><li><a href="#2">RANSAC &amp; LM to estimate rigid motion parameters</a></li></ul></div><pre class="codeinput"><span class="keyword">function</span> [best_tr,best_inliers,tr0,predict,rms] = ransac_minimize_reproj(X,observe,param)
+</pre><h2>RANSAC &amp; LM to estimate rigid motion parameters<a name="2"></a></h2><p><i>X</i> is 3d point cloud, s.t. size(X) = [3 N]</p><p>observe are projections of X in a new frame (i.e., after camera rotation/translation).  The function assumes that observed(1:2,j)/observe(3:4,j) are the projections of X(:,j).  It also allows for some degree of mismatches. param is a structure that holds various parameters (TODO: describe params here) best_tr is a 6-vector of motion params that will be estimated. best_inliers is a support set for best_tr (i.e., best_tr is estimated based on best_inliers) tr0 is an initial guess that was used for LM (it is obtained by solving 3d-2-3d rigid motion) predict(:,j) is a predicted projection of point X(:,j) into the current image plane rms is a reprojection error rms</p><pre class="codeinput">status = false;
+best_inliers = [];
+tr0 = nan(6,1);
+<span class="keyword">for</span> j=1:param.ransac_iter
+    active = datasample(1:size(X,2),param.model_size,<span class="string">'Replace'</span>,false);
+    tr = zeros(6,1);
+    <span class="keyword">if</span> param.init
+        X0 = X(:,active); X1 = trg(observe(:,active),param);
+        <span class="keyword">if</span> ~any(isnan(X1(:)))
+            tr = solve3d23d(X0,X1); tr0 = tr;
+        <span class="keyword">end</span>
+    <span class="keyword">else</span>
+        tr0 = nan(6,1);
+    <span class="keyword">end</span>
+
+    <span class="keyword">for</span> i=1:param.lm_max_iter
+        [J,residual,~] = computeJ(X,tr,observe,param,active);
+        JtJ = J'*J;
+        rc = rcond(JtJ);
+        <span class="keyword">if</span> isnan(rc) || rc&lt;1e-12
+            <span class="keyword">break</span>;
+        <span class="keyword">end</span>
+        p_gn = (J'*J)\(J'*residual);
+        <span class="keyword">if</span> norm(p_gn)&lt;1e-10,
+            status = true;
+            <span class="keyword">break</span>;
+        <span class="keyword">else</span>
+            tr = tr+p_gn;
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+    <span class="keyword">if</span> status,
+        active = 1:size(X,2);
+        [~,residual,~] = computeJ(X,tr,observe,param,active);
+        res = reshape(residual.*residual,[4 numel(active)]);
+        res = sum(res);
+        inliers = find(res&lt;param.inlier_thresh*param.inlier_thresh);
+        <span class="keyword">if</span> numel(inliers)&gt;numel(best_inliers)
+            best_tr = tr;
+            best_inliers = inliers;
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+
+<span class="keyword">if</span> isempty(best_inliers)
+    <span class="keyword">return</span>;
+<span class="keyword">end</span>
+
+<span class="comment">% final optimization iterations</span>
+<span class="keyword">for</span> i=1:100
+    [J,residual,predict] = computeJ(X,best_tr,observe,param,best_inliers);
+    JtJ = J'*J;
+    rc = rcond(JtJ);
+    <span class="keyword">if</span> isnan(rc) || rc&lt;1e-12
+        <span class="keyword">break</span>;
+    <span class="keyword">end</span>
+    p_gn = (J'*J)\(J'*residual);
+    <span class="keyword">if</span> norm(p_gn)&lt;1e-10,
+        <span class="keyword">break</span>;
+    <span class="keyword">end</span>
+    best_tr = best_tr+p_gn;
+<span class="keyword">end</span>
+
+predict = reshape(predict, [4 numel(best_inliers)]);
+rms = sqrt(sum(residual.*residual)/numel(best_inliers));
+</pre><pre class="codeoutput error">Error using ransac_minimize_reproj (line 23)
+Not enough input arguments.
+</pre><pre class="codeinput"><span class="keyword">end</span>
+
+<span class="keyword">function</span> [J,residual,predict] = computeJ(X,tr,observe,param,active)
+
+<span class="comment">% motion parameteres, rotation/translation</span>
+rx = tr(1); ry = tr(2); rz = tr(3);
+tx = tr(4); ty = tr(5); tz = tr(6);
+
+<span class="comment">% precompute sine/cosine</span>
+sx = sin(rx); cx = cos(rx); sy = sin(ry);
+cy = cos(ry); sz = sin(rz); cz = cos(rz);
+
+<span class="comment">% compute rotation matrix</span>
+r00    = +cy*cz;           r01    = -cy*sz;           r02    = +sy;
+r10    = +sx*sy*cz+cx*sz;  r11    = -sx*sy*sz+cx*cz;  r12    = -sx*cy;
+r20    = -cx*sy*cz+sx*sz;  r21    = +cx*sy*sz+sx*cz;  r22    = +cx*cy;
+<span class="comment">% dR/drx</span>
+rdrx10 = +cx*sy*cz-sx*sz;  rdrx11 = -cx*sy*sz-sx*cz;  rdrx12 = -cx*cy;
+rdrx20 = +sx*sy*cz+cx*sz;  rdrx21 = -sx*sy*sz+cx*cz;  rdrx22 = -sx*cy;
+<span class="comment">% dR/dry</span>
+rdry00 = -sy*cz;           rdry01 = +sy*sz;           rdry02 = +cy;
+rdry10 = +sx*cy*cz;        rdry11 = -sx*cy*sz;        rdry12 = +sx*sy;
+rdry20 = -cx*cy*cz;        rdry21 = +cx*cy*sz;        rdry22 = -cx*sy;
+<span class="comment">% dR/drz</span>
+rdrz00 = -cy*sz;           rdrz01 = -cy*cz;
+rdrz10 = -sx*sy*sz+cx*cz;  rdrz11 = -sx*sy*cz-cx*sz;
+rdrz20 = +cx*sy*sz+sx*cz;  rdrz21 = +cx*sy*cz-sx*sz;
+
+J = nan(4*length(active),6);
+predict = nan(4,length(active));
+residual = nan(4*length(active),1);
+
+<span class="keyword">for</span> i = 1:length(active)
+    <span class="comment">% get 3d point in previous coordinate system</span>
+    X1p = X(1,active(i));
+    Y1p = X(2,active(i));
+    Z1p = X(3,active(i));
+
+    <span class="comment">% fprintf('observation %d; X1p,X2p,Z1p=%g,%g,%g\n',i,X1p,Y1p,Z1p);</span>
+    <span class="comment">% compute 3d point in current left coordinate system</span>
+    X1c = r00*X1p+r01*Y1p+r02*Z1p+tx;
+    Y1c = r10*X1p+r11*Y1p+r12*Z1p+ty;
+    Z1c = r20*X1p+r21*Y1p+r22*Z1p+tz;
+    <span class="comment">% fprintf('observation  X1c,Y1c,Z1c=%g,%g,%g\n',X1c,Y1c,Z1c);</span>
+
+    <span class="comment">% weighting</span>
+    <span class="keyword">if</span> 1,
+        weight = 1.0/(abs(observe(4*i-3)-param.calib.cu)/abs(param.calib.cu) + 0.05);
+    <span class="keyword">else</span>
+        weight = 1.0;
+    <span class="keyword">end</span>
+
+    <span class="comment">% compute 3d point in current right coordinate system</span>
+    X2c = X1c-param.base;
+
+    <span class="comment">% predicted locations for current feature point under current [r,t]</span>
+    predict(1,i) = param.calib.f*X1c/Z1c+param.calib.cu; <span class="comment">% left u</span>
+    predict(2,i) = param.calib.f*Y1c/Z1c+param.calib.cv; <span class="comment">% left v</span>
+    predict(3,i) = param.calib.f*X2c/Z1c+param.calib.cu; <span class="comment">% right u</span>
+    predict(4,i) = param.calib.f*Y1c/Z1c+param.calib.cv; <span class="comment">% right v</span>
+
+    <span class="comment">% current residuals</span>
+    residual(4*i-3) = weight*(observe(1,active(i))-predict(1,i));
+    residual(4*i-2) = weight*(observe(2,active(i))-predict(2,i));
+    residual(4*i-1) = weight*(observe(3,active(i))-predict(3,i));
+    residual(4*i-0) = weight*(observe(4,active(i))-predict(4,i));
+
+    <span class="comment">% fprintf('X2c: %g\n',X2c);</span>
+    <span class="comment">% r[i] = observed-K[R(r),t]*Xp</span>
+    <span class="comment">% for all paramters do</span>
+    <span class="keyword">for</span> j=1:6
+        <span class="keyword">switch</span> j
+            <span class="keyword">case</span> 1
+                <span class="comment">% dr_i/drx</span>
+                X1cd = 0;
+                Y1cd = rdrx10*X1p+rdrx11*Y1p+rdrx12*Z1p;
+                Z1cd = rdrx20*X1p+rdrx21*Y1p+rdrx22*Z1p;
+            <span class="keyword">case</span> 2
+                <span class="comment">% dr_i/dry</span>
+                X1cd = rdry00*X1p+rdry01*Y1p+rdry02*Z1p;
+                Y1cd = rdry10*X1p+rdry11*Y1p+rdry12*Z1p;
+                Z1cd = rdry20*X1p+rdry21*Y1p+rdry22*Z1p;
+            <span class="keyword">case</span> 3
+                <span class="comment">% dr_i/drz</span>
+                X1cd = rdrz00*X1p+rdrz01*Y1p;
+                Y1cd = rdrz10*X1p+rdrz11*Y1p;
+                Z1cd = rdrz20*X1p+rdrz21*Y1p;
+            <span class="keyword">case</span> 4
+                <span class="comment">% dr_i/dtx</span>
+                X1cd = 1; Y1cd = 0; Z1cd = 0;
+            <span class="keyword">case</span> 5
+                <span class="comment">% dr_i/dty</span>
+                X1cd = 0; Y1cd = 1; Z1cd = 0;
+            <span class="keyword">case</span> 6
+                <span class="comment">% dr_i/dtz</span>
+                X1cd = 0; Y1cd = 0; Z1cd = 1;
+        <span class="keyword">end</span>
+
+        <span class="comment">% set jacobian entries (project via K)</span>
+        J(4*i-3,j) = weight*param.calib.f*(X1cd*Z1c-X1c*Z1cd)/(Z1c*Z1c); <span class="comment">% left u'</span>
+        J(4*i-2,j) = weight*param.calib.f*(Y1cd*Z1c-Y1c*Z1cd)/(Z1c*Z1c); <span class="comment">% left v'</span>
+        J(4*i-1,j) = weight*param.calib.f*(X1cd*Z1c-X2c*Z1cd)/(Z1c*Z1c); <span class="comment">% right u'</span>
+        J(4*i-0,j) = weight*param.calib.f*(Y1cd*Z1c-Y1c*Z1cd)/(Z1c*Z1c); <span class="comment">% right v'</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+<span class="keyword">end</span>
+
+<span class="keyword">function</span> tr = solve3d23d(X0,X1)
+tr = nan(6,1);
+B = bsxfun(@minus,X1,mean(X1,2))';
+A = bsxfun(@minus,X0,mean(X0,2))';
+[~, R, ~] = procrust(A,B);
+[tr(1),tr(2),tr(3)] = decompose_rotation(R);
+tr(4:6) = -R*mean(X0,2)+mean(X1,2);
+<span class="keyword">end</span>
+</pre><p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2014b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+function [best_tr,best_inliers,tr0,predict,rms] = ransac_minimize_reproj(X,observe,param)
+%% RANSAC & LM to estimate rigid motion parameters
+% _X_ is 3d point cloud, s.t. size(X) = [3 N]
+%
+% observe are projections of X in a new frame (i.e., after camera
+% rotation/translation).  The function assumes that
+% observed(1:2,j)/observe(3:4,j) are the projections of X(:,j).  It also
+% allows for some degree of mismatches.
+% param is a structure that holds various parameters (TODO: describe
+% params here)
+% best_tr is a 6-vector of motion params that will be estimated.
+% best_inliers is a support set for best_tr (i.e., best_tr is estimated
+% based on best_inliers)
+% tr0 is an initial guess that was used for LM (it is obtained by solving
+% 3d-2-3d rigid motion)
+% predict(:,j) is a predicted projection of point X(:,j) into the current
+% image plane
+% rms is a reprojection error rms
+
+status = false;
+best_inliers = [];
+tr0 = nan(6,1);
+for j=1:param.ransac_iter
+    active = datasample(1:size(X,2),param.model_size,'Replace',false);
+    tr = zeros(6,1);
+    if param.init
+        X0 = X(:,active); X1 = trg(observe(:,active),param);
+        if ~any(isnan(X1(:)))
+            tr = solve3d23d(X0,X1); tr0 = tr;
+        end
+    else
+        tr0 = nan(6,1);
+    end
+
+    for i=1:param.lm_max_iter
+        [J,residual,~] = computeJ(X,tr,observe,param,active);
+        JtJ = J'*J;
+        rc = rcond(JtJ);
+        if isnan(rc) || rc<1e-12
+            break;
+        end
+        p_gn = (J'*J)\(J'*residual);
+        if norm(p_gn)<1e-10,
+            status = true;
+            break;
+        else
+            tr = tr+p_gn;
+        end
+    end
+    if status,
+        active = 1:size(X,2);
+        [~,residual,~] = computeJ(X,tr,observe,param,active);
+        res = reshape(residual.*residual,[4 numel(active)]);
+        res = sum(res);
+        inliers = find(res<param.inlier_thresh*param.inlier_thresh);
+        if numel(inliers)>numel(best_inliers)
+            best_tr = tr;
+            best_inliers = inliers;
+        end
+    end
+end
+
+if isempty(best_inliers)
+    return;
+end
+
+% final optimization iterations
+for i=1:100
+    [J,residual,predict] = computeJ(X,best_tr,observe,param,best_inliers);
+    JtJ = J'*J;
+    rc = rcond(JtJ);
+    if isnan(rc) || rc<1e-12
+        break;
+    end
+    p_gn = (J'*J)\(J'*residual);
+    if norm(p_gn)<1e-10,
+        break;
+    end
+    best_tr = best_tr+p_gn;
+end
+
+predict = reshape(predict, [4 numel(best_inliers)]);
+rms = sqrt(sum(residual.*residual)/numel(best_inliers));
+
+end
+
+function [J,residual,predict] = computeJ(X,tr,observe,param,active)
+
+% motion parameteres, rotation/translation
+rx = tr(1); ry = tr(2); rz = tr(3);
+tx = tr(4); ty = tr(5); tz = tr(6);
+
+% precompute sine/cosine
+sx = sin(rx); cx = cos(rx); sy = sin(ry);
+cy = cos(ry); sz = sin(rz); cz = cos(rz);
+
+% compute rotation matrix
+r00    = +cy*cz;           r01    = -cy*sz;           r02    = +sy;
+r10    = +sx*sy*cz+cx*sz;  r11    = -sx*sy*sz+cx*cz;  r12    = -sx*cy;
+r20    = -cx*sy*cz+sx*sz;  r21    = +cx*sy*sz+sx*cz;  r22    = +cx*cy;
+% dR/drx
+rdrx10 = +cx*sy*cz-sx*sz;  rdrx11 = -cx*sy*sz-sx*cz;  rdrx12 = -cx*cy;
+rdrx20 = +sx*sy*cz+cx*sz;  rdrx21 = -sx*sy*sz+cx*cz;  rdrx22 = -sx*cy;
+% dR/dry
+rdry00 = -sy*cz;           rdry01 = +sy*sz;           rdry02 = +cy;
+rdry10 = +sx*cy*cz;        rdry11 = -sx*cy*sz;        rdry12 = +sx*sy;
+rdry20 = -cx*cy*cz;        rdry21 = +cx*cy*sz;        rdry22 = -cx*sy;
+% dR/drz
+rdrz00 = -cy*sz;           rdrz01 = -cy*cz;
+rdrz10 = -sx*sy*sz+cx*cz;  rdrz11 = -sx*sy*cz-cx*sz;
+rdrz20 = +cx*sy*sz+sx*cz;  rdrz21 = +cx*sy*cz-sx*sz;
+
+J = nan(4*length(active),6);
+predict = nan(4,length(active));
+residual = nan(4*length(active),1);
+
+for i = 1:length(active)
+    % get 3d point in previous coordinate system
+    X1p = X(1,active(i));
+    Y1p = X(2,active(i));
+    Z1p = X(3,active(i));
+    
+    % fprintf('observation %d; X1p,X2p,Z1p=%g,%g,%g\n',i,X1p,Y1p,Z1p);
+    % compute 3d point in current left coordinate system
+    X1c = r00*X1p+r01*Y1p+r02*Z1p+tx;
+    Y1c = r10*X1p+r11*Y1p+r12*Z1p+ty;
+    Z1c = r20*X1p+r21*Y1p+r22*Z1p+tz;
+    % fprintf('observation  X1c,Y1c,Z1c=%g,%g,%g\n',X1c,Y1c,Z1c);
+    
+    % weighting
+    if 1,
+        weight = 1.0/(abs(observe(4*i-3)-param.calib.cu)/abs(param.calib.cu) + 0.05);
+    else
+        weight = 1.0;
+    end
+    
+    % compute 3d point in current right coordinate system
+    X2c = X1c-param.base;
+    
+    % predicted locations for current feature point under current [r,t]
+    predict(1,i) = param.calib.f*X1c/Z1c+param.calib.cu; % left u
+    predict(2,i) = param.calib.f*Y1c/Z1c+param.calib.cv; % left v
+    predict(3,i) = param.calib.f*X2c/Z1c+param.calib.cu; % right u
+    predict(4,i) = param.calib.f*Y1c/Z1c+param.calib.cv; % right v
+    
+    % current residuals
+    residual(4*i-3) = weight*(observe(1,active(i))-predict(1,i));
+    residual(4*i-2) = weight*(observe(2,active(i))-predict(2,i));
+    residual(4*i-1) = weight*(observe(3,active(i))-predict(3,i));
+    residual(4*i-0) = weight*(observe(4,active(i))-predict(4,i));
+    
+    % fprintf('X2c: %g\n',X2c);
+    % r[i] = observed-K[R(r),t]*Xp
+    % for all paramters do
+    for j=1:6
+        switch j
+            case 1
+                % dr_i/drx
+                X1cd = 0;
+                Y1cd = rdrx10*X1p+rdrx11*Y1p+rdrx12*Z1p;
+                Z1cd = rdrx20*X1p+rdrx21*Y1p+rdrx22*Z1p;
+            case 2
+                % dr_i/dry
+                X1cd = rdry00*X1p+rdry01*Y1p+rdry02*Z1p;
+                Y1cd = rdry10*X1p+rdry11*Y1p+rdry12*Z1p;
+                Z1cd = rdry20*X1p+rdry21*Y1p+rdry22*Z1p;
+            case 3
+                % dr_i/drz
+                X1cd = rdrz00*X1p+rdrz01*Y1p;
+                Y1cd = rdrz10*X1p+rdrz11*Y1p;
+                Z1cd = rdrz20*X1p+rdrz21*Y1p;
+            case 4
+                % dr_i/dtx
+                X1cd = 1; Y1cd = 0; Z1cd = 0;
+            case 5
+                % dr_i/dty
+                X1cd = 0; Y1cd = 1; Z1cd = 0;
+            case 6
+                % dr_i/dtz
+                X1cd = 0; Y1cd = 0; Z1cd = 1;
+        end
+        
+        % set jacobian entries (project via K)
+        J(4*i-3,j) = weight*param.calib.f*(X1cd*Z1c-X1c*Z1cd)/(Z1c*Z1c); % left u'
+        J(4*i-2,j) = weight*param.calib.f*(Y1cd*Z1c-Y1c*Z1cd)/(Z1c*Z1c); % left v'
+        J(4*i-1,j) = weight*param.calib.f*(X1cd*Z1c-X2c*Z1cd)/(Z1c*Z1c); % right u'
+        J(4*i-0,j) = weight*param.calib.f*(Y1cd*Z1c-Y1c*Z1cd)/(Z1c*Z1c); % right v'
+    end
+end
+end
+
+function tr = solve3d23d(X0,X1)
+tr = nan(6,1);
+B = bsxfun(@minus,X1,mean(X1,2))';
+A = bsxfun(@minus,X0,mean(X0,2))';
+[~, R, ~] = procrust(A,B);
+[tr(1),tr(2),tr(3)] = decompose_rotation(R);
+tr(4:6) = -R*mean(X0,2)+mean(X1,2);
+end
+
+##### SOURCE END #####
+--></body></html>

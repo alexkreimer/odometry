@@ -1,27 +1,16 @@
-function [a,b] = simple_ba(x,sigma,a,b,param)
-% x{i,j} are the coordinates of point i in view j. if the cell x{i,j} is
-% empty it means that point i is not visible in view j.
-% sigma{i,j} is the covariance of x{i,j}
-% a{j} are camera parameters for view j
-% b{i} are 3d point i coordinates
-% the procedure returns the refined parameters
+function [r,J] = obj_ba(x,a,b,param)
+% Bundle adjustment objective
+% a are camera extrinsic params, are structure params
 
-for i=1:100
-    [r,J] = predict(x,a,b,param);
-    JtJ = J'*inv(sigma)*J;
-    delta = -inv(JtJ)*(J'*sigma)*r;
-end
-
-end
-
-function [r,J] = predict(x,a,b,param)
+% measurement vector is [x_ij] where i is the index of the 3d point and j
+% is the index of the view
 
 cam_num = size(a,1);
 pts_num = size(b,1);
 
 % 4 image coordinates for each observation in each view \times the number
 % of parameters (motion + structure)
-predd = pts_num*cam_num*param.obd;
+predd  = pts_num*cam_num*param.obd;
 paramd = param.ad*cam_num+param.bd*pts_num;
 % Jacobian
 J = zeros(predd,paramd);
@@ -33,25 +22,24 @@ for i=1:pts_num
         if isempty(x{i,j}),
             continue;
         end
-        % position of the current element in the prediction vector/row
+        % index of the current element in the prediction vector/row
         % number in the Jacobian
-        pred_pos = param.obd*((i-1)*cam_num+(j-1))+1;
-        % position in the camera param vector
-        param_pos = param.ad*(j-1)+1;
+        pred_ind = param.obd*((i-1)*cam_num+(j-1))+1;
+        % index in the camera param vector
+        param_ind = param.ad*(j-1)+1;
         
         % calc first order data r_{ij}
-        [r(pred_pos:pred_pos+param.obd-1),Jx] = predict1(a{j},b{i},param);
-        J(pred_pos:pred_pos+param.obd-1,param_pos:param_pos+param.ad-1) = Jx(:,1:param.ad);
-        % position of the structure parameter
-        param_pos = param.ad*cam_num+param.bd*(i-1)+1;
-        J(pred_pos:pred_pos+param.obd-1,param_pos:param_pos+param.bd-1) = Jx(:,param.ad+1:param.ad+param.bd);
+        [r(pred_ind:pred_ind+param.obd-1),Jx] = predict1(x{i,j},a{j},b{i},param);
+        J(pred_ind:pred_ind+param.obd-1,param_ind:param_ind+param.ad-1) = Jx(:,1:param.ad);
+        % index of the structure parameter
+        param_ind = param.ad*cam_num+param.bd*(i-1)+1;
+        J(pred_ind:pred_ind+param.obd-1,param_ind:param_ind+param.bd-1) = Jx(:,param.ad+1:param.ad+param.bd);
     end
 end
-
 end
 
 % prediction model and its gradient
-function [val,J] = predict1(a,b,param)
+function [r,J] = predict1(x,a,b,param)
 % motion parameteres, rotation(euler angles)/translation
 rx = a(1); ry = a(2); rz = a(3);
 tx = a(4); ty = a(5); tz = a(6);
@@ -67,17 +55,17 @@ r20    = -cx*sy*cz+sx*sz;  r21    = +cx*sy*sz+sx*cz;  r22    = +cx*cy;
 
 X1p = b(1); Y1p = b(2); Z1p = b(3);
 % [R t]*e2h(X)
-X1c = r00*X1p+r01*Y1p+r02*Z1p+tx;
-Y1c = r10*X1p+r11*Y1p+r12*Z1p+ty;
-Z1c = r20*X1p+r21*Y1p+r22*Z1p+tz;
+X1c = r00*b(1)+r01*b(2)+r02*b(3)+tx;
+Y1c = r10*b(1)+r11*b(2)+r12*b(3)+ty;
+Z1c = r20*b(1)+r21*b(2)+r22*b(3)+tz;
 X2c = X1c-param.base;
 
-val = nan(4,1);
-% predictions h2e(K[R t]e2h(X))
-val(1) = param.calib.f*X1c/Z1c+param.calib.cu;
-val(2) = param.calib.f*Y1c/Z1c+param.calib.cv;
-val(3) = param.calib.f*X2c/Z1c+param.calib.cu;
-val(4) = param.calib.f*Y1c/Z1c+param.calib.cv;
+r = nan(4,1);
+% residuals: x-h2e(K[R t]e2h(X))
+r(1) = param.calib.f*X1c/Z1c+param.calib.cu-x(1);
+r(2) = param.calib.f*Y1c/Z1c+param.calib.cv-x(2);
+r(3) = param.calib.f*X2c/Z1c+param.calib.cu-x(3);
+r(4) = param.calib.f*Y1c/Z1c+param.calib.cv-x(4);
 
 % dR/drx
 rdrx10 = +cx*sy*cz-sx*sz;  rdrx11 = -cx*sy*sz-sx*cz;  rdrx12 = -cx*cy;

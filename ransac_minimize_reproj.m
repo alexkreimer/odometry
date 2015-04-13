@@ -1,86 +1,87 @@
-function [tr,inliers] = ransac_minimize_reproj(X,observe,param)
+function [best_tr,best_inliers,tr0,predict,rms] = ransac_minimize_reproj(X,observe,param)
+%% RANSAC & LM to estimate rigid motion parameters
+% _X_ is 3d point cloud, s.t. size(X) = [3 N]
+%
+% observe are projections of X in a new frame (i.e., after camera
+% rotation/translation).  The function assumes that
+% observed(1:2,j)/observe(3:4,j) are the projections of X(:,j).  It also
+% allows for some degree of mismatches.
+% param is a structure that holds various parameters (TODO: describe
+% params here)
+% best_tr is a 6-vector of motion params that will be estimated.
+% best_inliers is a support set for best_tr (i.e., best_tr is estimated
+% based on best_inliers)
+% tr0 is an initial guess that was used for LM (it is obtained by solving
+% 3d-2-3d rigid motion)
+% predict(:,j) is a predicted projection of point X(:,j) into the current
+% image plane
+% rms is a reprojection error rms
 
-% X - 3d points as seen in previous frame; size(X) = [3,N]
-% observe - [4,N] observations as found in the current frame
-% tr is a 6 vector of motion params
-
-step_size = 1;
-model_size = 3;
 status = false;
-for j = 1:200
-    active = datasample(1:size(X,2),model_size,'Replace',false);
+best_inliers = [];
+tr0 = nan(6,1);
+for j=1:param.ransac_iter
+    active = datasample(1:size(X,2),param.model_size,'Replace',false);
     tr = zeros(6,1);
     if param.init
-        % TODO: needs to be tested
-        X0 = X(:,active);
-        X1 = nan(3,length(active));
-        for i=1:length(active)
-            X1(:,i) = triangulate_naive(observe(1:2,active(i)),observe(3:4,active(i)),...
-                param.base,param.calib.f,param.calib.cu,param.calib.cv);
+        X0 = X(:,active); X1 = trg(observe(:,active),param);
+        if ~any(isnan(X1(:)))
+            tr = solve3d23d(X0,X1); tr0 = tr;
         end
-        A = bsxfun(@minus,X1,mean(X1,2));
-        B = bsxfun(@minus,X0,mean(X0,2));
-        [~, R] = procrust(A,B);
-        [tr(1),tr(2),tr(3)] = decompose_rotation(R);
-        tr(4:6) = R'*mean(X1,2)-mean(X0,2);
-        tr0 = tr;
-    end
-    for i=1:1000
-        [J,residual,~] = computeJ(X,tr,observe,param,active);
-        % fprintf('norm(residual)=%g\n',norm(residual));
-        JtJ = J'*J;
-        rc = rcond(JtJ);
-        if isnan(rc) || rc<1e-16
-            %fprintf('JtJ is ill-conditioned\n');
-            break;
-        end
-        p_gn = (J'*J)\(J'*residual);
-        if norm(p_gn)<1e-10,
-            status = true;
-            break;
-        else
-            tr = tr+step_size*p_gn;
-        end
-    end
-    if status, break; end
-end
-
-if status,
-    % final iteration
-    status = false;
-    active = 1:size(X,2);
-    [~,residual,~] = computeJ(X,tr,observe,param,active);
-    res = reshape(residual,[4,length(residual)/4]);
-    res = sum(res.*res);
-    thresh = 2;
-    inliers = find(res<2*thresh*thresh);
-    % final optimization iterations
-    for i=1:100
-        [J,residual] = computeJ(X,tr,observe,param,inliers);
-        JtJ = J'*J;
-        rc = rcond(JtJ);
-        if isnan(rc) || rc<1e-16
-            %fprintf('JtJ is ill-conditioned\n');
-            break;
-        end
-        p_gn = (J'*J)\(J'*residual);
-        if norm(p_gn)<1e-10,
-            status = true;
-            break;
-        else
-            tr = tr+step_size*p_gn;
-        end
-    end    
-end
-
-if status == false,
-    if param.init,
-        tr = tr0;
     else
-        tr = nan(6,1);
+        tr0 = nan(6,1);
     end
-    inliers = [];
+
+    for i=1:param.lm_max_iter
+        [J,residual,~] = computeJ(X,tr,observe,param,active);
+        JtJ = J'*J;
+        rc = rcond(JtJ);
+        if isnan(rc) || rc<1e-12
+            break;
+        end
+        p_gn = (J'*J)\(J'*residual);
+        if norm(p_gn)<1e-10,
+            status = true;
+            break;
+        else
+            tr = tr+p_gn;
+        end
+    end
+    if status,
+        active = 1:size(X,2);
+        [~,residual,~] = computeJ(X,tr,observe,param,active);
+        res = reshape(residual.*residual,[4 numel(active)]);
+        res = sum(res);
+        inliers = find(res<param.inlier_thresh*param.inlier_thresh);
+        if numel(inliers)>numel(best_inliers)
+            best_tr = tr;
+            best_inliers = inliers;
+        end
+    end
 end
+
+if isempty(best_inliers)
+    return;
+end
+
+% final optimization iterations
+for i=1:100
+    [J,residual,predict] = computeJ(X,best_tr,observe,param,best_inliers);
+    JtJ = J'*J;
+    rc = rcond(JtJ);
+    if isnan(rc) || rc<1e-12
+        break;
+    end
+    p_gn = (J'*J)\(J'*residual);
+    if norm(p_gn)<1e-10,
+        break;
+    end
+    best_tr = best_tr+p_gn;
+end
+
+predict = reshape(predict, [4 numel(best_inliers)]);
+rms = sqrt(sum(residual.*residual)/numel(best_inliers));
+
 end
 
 function [J,residual,predict] = computeJ(X,tr,observe,param,active)
@@ -184,8 +185,15 @@ for i = 1:length(active)
         J(4*i-2,j) = weight*param.calib.f*(Y1cd*Z1c-Y1c*Z1cd)/(Z1c*Z1c); % left v'
         J(4*i-1,j) = weight*param.calib.f*(X1cd*Z1c-X2c*Z1cd)/(Z1c*Z1c); % right u'
         J(4*i-0,j) = weight*param.calib.f*(Y1cd*Z1c-Y1c*Z1cd)/(Z1c*Z1c); % right v'
-        %      fprintf('param %d,observation %d: %g, %g, %g, %g\n', j,i, J(4*i-3,j),J(4*i-2,j),J(4*i-1,j),J(4*i-0,j));
     end
 end
 end
 
+function tr = solve3d23d(X0,X1)
+tr = nan(6,1);
+B = bsxfun(@minus,X1,mean(X1,2))';
+A = bsxfun(@minus,X0,mean(X0,2))';
+[~, R, ~] = procrust(A,B);
+[tr(1),tr(2),tr(3)] = decompose_rotation(R);
+tr(4:6) = -R*mean(X0,2)+mean(X1,2);
+end

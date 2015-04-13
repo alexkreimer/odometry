@@ -1,4 +1,5 @@
 function Rt = tr2mat(tr)
+% XYZ
 
 rx = tr(1); ry = tr(2); rz = tr(3);
 tx = tr(4); ty = tr(5); tz = tr(6);

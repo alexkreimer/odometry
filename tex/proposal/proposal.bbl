@@ -1,0 +1,119 @@
+\begin{thebibliography}{10}
+
+\bibitem{Maimone07twoyears}
+M.~Maimone, Y.~Cheng, and L.~Matthies, ``Two years of visual odometry on the
+  mars exploration rovers,'' {\em Journal of Field Robotics, Special Issue on
+  Space Robotics}, vol.~24, p.~2007, 2007.
+
+\bibitem{Moravec:1980:OAN:909315}
+H.~P. Moravec, {\em Obstacle Avoidance and Navigation in the Real World by a
+  Seeing Robot Rover}.
+\newblock PhD thesis, Stanford, CA, USA, 1980.
+\newblock AAI8024717.
+
+\bibitem{Matthies87errormodeling}
+L.~Matthies and S.~Shafer, ``Error modeling in stereo navigation,'' 1987.
+
+\bibitem{Matthies:1989:DSV:916891}
+L.~H. Matthies, {\em Dynamic Stereo Vision}.
+\newblock PhD thesis, Pittsburgh, PA, USA, 1989.
+\newblock AAI9023429.
+
+\bibitem{olson2003rover}
+C.~F. Olson, L.~H. Matthies, M.~Schoppers, and M.~W. Maimone, ``Rover
+  navigation using stereo ego-motion,'' {\em Robotics and Autonomous Systems},
+  vol.~43, no.~4, pp.~215--229, 2003.
+
+\bibitem{zhang1988analysis}
+Z.~Zhang, O.~D. Faugeras, and N.~Ayache, ``Analysis of a sequence of stereo
+  scenes containing multiple moving objects using rigidity constraints,'' in
+  {\em Computer Vision., Second International Conference on}, pp.~177--186,
+  IEEE, 1988.
+
+\bibitem{lacroix1999rover}
+S.~Lacroix, A.~Mallet, R.~Chatila, and L.~Gallo, ``Rover self localization in
+  planetary-like environments,'' in {\em Artificial Intelligence, Robotics and
+  Automation in Space}, vol.~440, p.~433, 1999.
+
+\bibitem{nister2004visual}
+D.~Nist{\'e}r, O.~Naroditsky, and J.~Bergen, ``Visual odometry,'' in {\em
+  Computer Vision and Pattern Recognition, 2004. CVPR 2004. Proceedings of the
+  2004 IEEE Computer Society Conference on}, vol.~1, pp.~I--652, IEEE, 2004.
+
+\bibitem{nister2006visual}
+D.~Nist{\'e}r, O.~Naroditsky, and J.~Bergen, ``Visual odometry for ground
+  vehicle applications,'' {\em Journal of Field Robotics}, vol.~23, no.~1,
+  pp.~3--20, 2006.
+
+\bibitem{nister2004efficient}
+D.~Nist{\'e}r, ``An efficient solution to the five-point relative pose
+  problem,'' {\em Pattern Analysis and Machine Intelligence, IEEE Transactions
+  on}, vol.~26, no.~6, pp.~756--770, 2004.
+
+\bibitem{nister2005preemptive}
+D.~Nist{\'e}r, ``Preemptive ransac for live structure and motion estimation,''
+  {\em Machine Vision and Applications}, vol.~16, no.~5, pp.~321--329, 2005.
+
+\bibitem{mccarthy2004performance}
+C.~McCarthy and N.~Bames, ``Performance of optical flow techniques for indoor
+  navigation with a mobile robot,'' in {\em Robotics and Automation, 2004.
+  Proceedings. ICRA'04. 2004 IEEE International Conference on}, vol.~5,
+  pp.~5093--5098, IEEE, 2004.
+
+\bibitem{vassallo2002general}
+R.~F. Vassallo, J.~Santos-Victor, and H.~J. Schneebeli, ``A general approach
+  for egomotion estimation with omnidirectional images,'' in {\em
+  Omnidirectional Vision, 2002. Proceedings. Third Workshop on}, pp.~97--103,
+  IEEE, 2002.
+
+\bibitem{gluckman1998ego}
+J.~Gluckman and S.~K. Nayar, ``Ego-motion and omnidirectional cameras,'' in
+  {\em Computer Vision, 1998. Sixth International Conference on},
+  pp.~999--1005, IEEE, 1998.
+
+\bibitem{corke2004omnidirectional}
+P.~Corke, D.~Strelow, and S.~Singh, ``Omnidirectional visual odometry for a
+  planetary rover,'' in {\em Intelligent Robots and Systems, 2004.(IROS 2004).
+  Proceedings. 2004 IEEE/RSJ International Conference on}, vol.~4,
+  pp.~4007--4012, IEEE, 2004.
+
+\bibitem{Geiger2012CVPR}
+A.~Geiger, P.~Lenz, and R.~Urtasun, ``Are we ready for autonomous driving? the
+  kitti vision benchmark suite,'' in {\em Conference on Computer Vision and
+  Pattern Recognition (CVPR)}, 2012.
+
+\bibitem{scaramuzza2011exploiting}
+D.~Scaramuzza, A.~Censi, and K.~Daniilidis, ``Exploiting motion priors in
+  visual odometry for vehicle-mounted cameras with non-holonomic constraints,''
+  in {\em Intelligent Robots and Systems (IROS), 2011 IEEE/RSJ International
+  Conference on}, pp.~4469--4476, IEEE, 2011.
+
+\bibitem{brooks2001value}
+M.~J. Brooks, W.~Chojnacki, D.~Gawley, and A.~Van Den~Hengel, ``What value
+  covariance information in estimating vision parameters?,'' in {\em Computer
+  Vision, 2001. ICCV 2001. Proceedings. Eighth IEEE International Conference
+  on}, vol.~1, pp.~302--308, IEEE, 2001.
+
+\bibitem{kanazawa2001we}
+Y.~Kanazawa and K.-i. Kanatani, ``Do we really have to consider covariance
+  matrices for image features?,'' in {\em Computer Vision, 2001. ICCV 2001.
+  Proceedings. Eighth IEEE International Conference on}, vol.~2, pp.~301--306,
+  IEEE, 2001.
+
+\bibitem{Hartley2004}
+R.~I. "Hartley and A.~Zisserman, {\em "Multiple View Geometry in Computer
+  Vision"}.
+\newblock "Cambridge University Press, ISBN: 0521540518", "second"~ed., "2004".
+
+\bibitem{orguner2007statistical}
+U.~Orguner and F.~Gustafsson, ``Statistical characteristics of harris corner
+  detector,''
+
+\bibitem{matthies1989dynamic}
+L.~H. Matthies, ``Dynamic stereo vision,'' 1989.
+
+\bibitem{Geiger2011IV}
+A.~Geiger, J.~Ziegler, and C.~Stiller, ``Stereoscan: Dense 3d reconstruction in
+  real-time,'' in {\em Intelligent Vehicles Symposium (IV)}, 2011.
+
+\end{thebibliography}

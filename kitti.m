@@ -5,20 +5,23 @@ dbstop if error;
 KITTI_HOME = '/home/kreimer/tmp/KITTI/dataset';
 
 
-seq_home = fullfile(KITTI_HOME, 'sequences', '01');
+image_dir = fullfile(KITTI_HOME, 'sequences', '01');
+poses_file = fullfile(KITTI_HOME, 'poses','01.txt');
+
 first = 1;
 last = 5;
 
 % setup camera parameters (KITTI)
-[P0, P1] = read_kitti_calib(seq_home);
+[P0, P1] = kitti_read_calib(image_dir);
+poses = kitti_read_poses(poses_file);
 
 % baseline, focal, principal point
 param.base = -P1(1,4)/P1(1,1);
-param.calib.f = P0(1,1); 
+param.calib.f = P0(1,1);
 param.calib.cu = P0(1,3);
 param.calib.cv = P0(2,3);
 % this commands minimization procedure to first solve 3d-3d rigid motion
-% and use it as an initial point for Gauss-Newton reprojection minimization 
+% and use it as an initial point for Gauss-Newton reprojection minimization
 % procedure
 param.init = true;
 % fundamental
@@ -39,6 +42,8 @@ param.ad = 6;
 % structure parameter vector dimension
 param.bd = 3;
 
+param.lm_max_iter = 1000;
+
 % init KLT trackers, 1 for the left cam, 2 for the right
 klt1 = vision.PointTracker;
 klt2 = vision.PointTracker;
@@ -48,142 +53,75 @@ a = repmat({zeros(6,1)},3,1);
 % main loop, iteration per image pair
 for i=first:last
     % read images
-    [i1,i2] = read_kitti_images(seq_home, i);
-    
-    % first pair is special, since we only init things
+    [i1,i2] = read_kitti_images(image_dir, i);
+
     if i==first,
-        % extract harris corners and convert them to struct arrays of
-        % features
-        f1 = corners2features(i1,corner(i1,'harris',param.corner_num),param.win_sz);
-        f2 = corners2features(i2,corner(i2,'harris',param.corner_num),param.win_sz);
-        
-        % match features across the stereo pair, using epipolar constraint
-        match = match_features(i1,i2,f1,f2,'debug',false,'F',param.F,'do_sampson',true);
-        match_num = size(match,2);
-        
-        % preallocate
-        % track is the tracklets db
-        track = struct('ft',cell(match_num,1));
-        
-        for j = 1:match_num
-            % triangulate matches, returns 3d point, disparity and the Jacobian
-            % of the triangulation func, which may be used to compute the
-            % cov of this 3d point (using sandwitch cov formula)
-            [X ,d, J] = triangulate_naive([f1(match(1,j)).pt],[f2(match(2,j)).pt],...
-                param.base,param.calib.f,param.calib.cu,param.calib.cv);
-            
-            % store feature in the db
-            track(j).ft(1).pts = [f1(match(1,j)).pt;f2(match(2,j)).pt];
-            track(j).ft(1).X = X;
-            track(j).ft(1).J = J;
-            track(j).ft(1).d = d;
-            track(j).begin = i;
-            track(j).updated_at = i;
-            track(j).live = abs(d)>param.min_d;
-        end
-        
-        % delete dead tracks
-        dead_tracks = track([track.live]==false);
-        track([track.live]==false) = [];
-        
-        % debug
-        xs = nan(2,length(dead_tracks)); dead_normJ = nan(length(dead_tracks),1);
-        for j=1:length(dead_tracks), 
-            xs(1,j) = dead_tracks(j).ft(1).pts(1); xs(2,j) = dead_tracks(j).ft(1).pts(2);
-            dead_normJ(j) = norm(dead_tracks(j).ft(1).J*dead_tracks(j).ft(1).J');
-        end
-        figure; subplot(211); imshow(i1); hold on; plot(xs(1,:),xs(2,:),'xr');
-        
-        normJ = nan(length(track),1);
-        for j=1:length(track), 
-            xs(1,j) = track(j).ft(1).pts(1); xs(2,j) = track(j).ft(1).pts(2);
-            normJ(j) = norm(track(j).ft(1).J*track(j).ft(1).J');
-            d(j) = track(j).ft(1).d;
-        end
-        plot(xs(1,:),xs(2,:),'xg'); legend('dead','live');
-        [normJ,idx] = sort(normJ); d = d(idx);
-        subplot(212); plot(normJ,'b'); hold on; plot(abs(d),'g');
-
-        % init the KLT trackers with matched features
-        [x,~] = track2cell(track);
-        pts = cell2mat(x(:,1)');
-        initialize(klt1, pts(1:2,:)',i1);
-        initialize(klt2, pts(3:4,:)',i2);
-        
-        % store current images (4debug)
-        i1_prev = i1; i2_prev = i2;
-        a{1} = zeros(6,1);
-        continue; 
+        ft1 = feat_get(i1, param);
+        ft2 = feat_get(i2, param);
+    else
+        [ft1, valid1] = feat_track(i1,klt1,param);
+        [ft2, valid2] = feat_track(i2,klt2,param);
     end
+
+    % match features across the stereo pair, using epipolar constraint
+    match = feat_match(i1,i2,ft1,ft2,'debug',false,'F',param.F,'do_sampson',true);
     
-    % track the corners into the current images and convert them to
-    % features
-    [points1, point_validity1] = step(klt1, i1);
-    [points2, point_validity2] = step(klt2, i2);
-    f1 = corners2features(i1,round(points1),param.win_sz);
-    f2 = corners2features(i2,round(points2),param.win_sz);
+    %ft1 = ft1(match(1,:)); ft2 = ft2(match(2,:));
+    len = length(ft1);
     
-    % match across the stereo pair
-    match = match_features(i1,i2,f1,f2,'debug',false,'F',param.F,'do_sampson',true);
+    if i==first
+        tracks = track_init(len);
+    else
+        %ft1_p = ft1_p(match(1,:)); ft2_p = ft2_p(match(2,:));
+    end
+
     
-    % find the tracklets that survived current step
-    for j=1:length(point_validity1)
-        track(j).live = false;
-        
-        % KLT says we lost it...
-        if ~point_validity1(j) || ~point_validity2(j), continue; end
-        
+    % create/update tracks
+    for j = 1:len
         % circle test
-        ind = find(match(1,:),j); if match(2,ind) ~= ind, continue, end;
-        
-        [X, d, J] = triangulate_naive(points1(j,:),points2(j,:),...
-            param.base,param.calib.f,param.calib.cu,param.calib.cv);
-        
-        if d<param.min_d, continue; end  % TBD: maybe zero disparity is not a reason to kill this track?
-        
-        cur_track_len = length([track(j).ft]);
-        track(j).ft(cur_track_len+1).pts = [points1(j,:)';points2(j,:)'];
-        track(j).ft(cur_track_len+1).X = X;
-        track(j).ft(cur_track_len+1).J = J;
-        track(j).ft(cur_track_len+1).d = d;
-        track(j).live = true;
-        track(j).updated_at = i;
+        % ind = find(match(1,:),j); if match(2,ind) ~= ind, continue, end;
+        x1 = ft1(match(1,j)).pt;
+        x2 = ft2(match(2,j)).pt;
+        [X, d, J] = triangulate1(x1,x2,param);
+        tracks(j) = track_update(tracks(j),x1,x2,X,d,J,i,param);
     end
     
-    to_remove = false(length(track),1);
-    for j=1:length(track)
-        if track(j).live == false && (track(j).updated_at + param.ba_w < i)
-            to_remove(j) = true;
-        end
+    % debug
+    if i>1
+        do_debug(i1,i2,i1_p,i2_p,ft1,ft2,ft1_p,ft2_p,tracks,param);
     end
     
-    % remove the tracklets that got out of the BA window
-    track(to_remove) = [];
-    [x,b] = track2cell(track);
-    pts = nan(4,length(track));
-    k=1;
-    for j=1:length(track)
-        pts(:,j) = track(j).ft(end).pts;
-        if track(j).live,
-            X(:,k) = track(k).ft(1).X;
-            observed(:,k) = track(k).ft(end).pts;
-            k = k+1;
-        end
+    % delete dead tracks
+    ft1 = ft1([tracks.live]);
+    ft2 = ft2([tracks.live]);
+    if i>1
+        ft1_p = ft1_p([tracks.live]);
+        ft2_p = ft2_p([tracks.live]);
+    end
+    tracks([tracks.live]==false) = [];
+    [x,X] = track_getx(tracks);
+    if i==1
+        % init the KLT trackers with matched features
+        initialize(klt1, x(1:2,:)',i1);
+        initialize(klt2, x(3:4,:)',i2);
+        a{1} = zeros(6,1);
+    else
+        setPoints(klt1,x(1:2,:)');
+        setPoints(klt2,x(3:4,:)');
     end
     
-    % keep trackers in sync
-    setPoints(klt1,pts(1:2,:)',[track.live]);
-    setPoints(klt2,pts(3:4,:)',[track.live]);
-    
-    % solve rigid motion
-    [a{i}, inliers] = ransac_minimize_reproj(X, observed, param);
-    if i>= size(a,1)
-        sigma = diag(ones(1,4*numel(x)));
-        [aba,bba] = simple_ba(x,sigma,a,b,param);
-    end
+    % solve incremental rigid motion
+    [a{i}, ~] = ransac_minimize_reproj(X,x,param);
+
+    %[x,~] = track2cell(tracks);
+    %if i>= size(a,1)
+    %    sigma = diag(ones(1,4*numel(x)));
+    %    [aba,bba] = simple_ba(x,sigma,a,b,param);
+    %end
+    i1_p = i1; i2_p = i2;
+end
 end
 
-end
 
 function [i1,i2] = read_kitti_images(seq_home, idx)
 
@@ -195,7 +133,19 @@ i2 = imread(file_names{2});
 
 end
 
-function [P0, P1] = read_kitti_calib(seq_home)
+function poses = kitti_read_poses(poses_file)
+fid = fopen(poses_file, 'r');
+i=1;
+tline = fgetl(fid);
+while ischar(tline)
+   poses(:,:,i) = reshape(sscanf(tline, '%f %f %f %f %f %f %f %f %f %f %f %f'),[4 3])';
+   tline = fgetl(fid);
+   i=i+1;
+end
+fclose(fid);
+end
+
+function [P0, P1] = kitti_read_calib(seq_home)
 
 calib_file = fullfile(seq_home, 'calib.txt');
 
@@ -204,24 +154,27 @@ p0 = fgetl(fd);
 p1 = fgetl(fd);
 P0 = reshape(sscanf(p0, 'P0: %f %f %f %f %f %f %f %f %f %f %f %f'),[4 3])';
 P1 = reshape(sscanf(p1, 'P1: %f %f %f %f %f %f %f %f %f %f %f %f'),[4 3])';
+fclose(fd);
 end
 
-function ft = corners2features(i1,c,win_sz)
+function [features, valid] = corners2features(i1,c,win_sz)
+% corners may become invalid because they are too close to image border
 pts_num = size(c,1);
-%ft = struct('pt',cell(pts_num,1));
-j=1;
-for i=1:pts_num
-    x1 = c(i,1)-win_sz;
-    x2 = c(i,1)+win_sz;
-    y1 = c(i,2)-win_sz;
-    y2 = c(i,2)+win_sz;
+features = struct('pt',cell(pts_num,1),'d',nan);
+valid = true(pts_num,1);
+for j=1:pts_num
+    x1 = c(j,1)-win_sz;
+    x2 = c(j,1)+win_sz;
+    y1 = c(j,2)-win_sz;
+    y2 = c(j,2)+win_sz;
     if x1<1 || y1<1 || x2>size(i1,2) || y2>size(i1,1)
+        valid(j) = false;
         continue;
+    else
+        patch = i1(y1:y2,x1:x2);
+        features(j).pt = c(j,:)';
+        features(j).d = single(patch(:));
     end
-    patch = i1(y1:y2,x1:x2);
-    ft(j).pt = c(i,:)';
-    ft(j).d = single(patch(:));
-    j = j+1;
 end
 
 end
@@ -244,3 +197,73 @@ for i=1:length(track)
     X{i} = track(i).ft(j).X;
 end
 end
+
+function frames = feat_get(i1, param)
+corners = corner(i1,'harris',param.corner_num);
+[frames,valid] = corners2features(i1,round(corners),param.win_sz);
+frames = frames(:,valid);
+end
+
+
+function [frames, validity] = feat_track(i1,klt,param)
+[corners, validity] = step(klt,i1);
+[frames,validity1] = corners2features(i1,round(corners),param.win_sz);
+validity = validity & validity1;
+end
+
+function [X,d,J] = triangulate1(x1,x2,param)
+[X, d, J] = triangulate_naive(x1,x2,param.base,param.calib.f,...
+    param.calib.cu,param.calib.cv);
+end
+
+function track = track_update(track,x1,x2,X,d,J,i,param)
+track.len = track.len+1;
+track.ft(track.len).x = [x1;x2];
+track.ft(track.len).X = X;
+track.ft(track.len).J = J;
+track.ft(track.len).d = d;
+track.live = d>param.min_d;
+track.updated_at = i;
+end
+
+function tracks = track_init(N)
+s = struct('ft',struct('x',[],'X',nan,'J',nan,'d',nan),'live',nan,...
+    'updated_at',nan,'len',0);
+tracks = repmat(s,[N 1]);
+end
+
+function do_debug(i1,i2,i1_p,i2_p,ft1,ft2,ft1_p,ft2_p,tracks,param)
+
+x(1:2,:) = [ft1.pt];
+x(3:4,:) = [ft2.pt];
+x_p(1:2,:) = [ft1_p.pt];
+x_p(3:4,:) = [ft2_p.pt];
+
+figure; showMatchedFeatures(i1,i1_p,x(1:2,:)',x_p(1:2,:)','blend'); title('left/prev');
+figure; showMatchedFeatures(i2,i2_p,x(3:4,:)',x_p(3:4,:)','blend'); title('right/prev');
+
+x = nan(4,length(tracks));
+for j=1:length(tracks)
+    x(:,j) = tracks(j).ft(end).x; d(j) = abs(tracks(j).ft(end).d);
+end
+figure; showMatchedFeatures(i1,i2,x(1:2,:)',x(3:4,:)','blend');
+hold on; title('disparity map');
+for j=1:length(tracks),
+    text(x(1,j),x(2,j),sprintf('%.2g',param.base*param.calib.f/d(j)),'FontSize',8)
+end
+d(d==0) = .1;
+scatter(x(1,:),x(2,:),d,'b'); legend('dead','live');
+end
+
+function [x,X] = track_getx(tracks)
+len = length(tracks);
+x = nan(4,len);
+X = nan(3,len);
+for j=1:len
+    x(:,j) = tracks(j).ft(end).x;
+    if nargout == 2
+        X(:,j) = tracks(j).ft(1).X;
+    end
+end
+end
+

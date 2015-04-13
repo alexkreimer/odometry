@@ -1,4 +1,4 @@
-function [match,info] = match_features(i1,i2,f1,f2,varargin)
+function [match,info] = feat_match(i1,i2,f1,f2,varargin)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -6,7 +6,7 @@ p = inputParser;
 addOptional(p,'do_sampson',false,@islogical);
 addOptional(p,'sampson_thresh',2, @isnumeric);
 addOptional(p,'F',eye(3));
-addOptional(p,'norm_fn',@norm);
+addOptional(p,'norm_fn',@(x) sum(x.*x));
 addOptional(p,'do_2nd_best', false, @islogical);
 addOptional(p,'ratio', .6);
 addOptional(p,'do_scale',false,@islogical);
@@ -19,9 +19,6 @@ info.err_2nd_best = 0;
 info.err_scale = 0;
 info.err_orientation = 0;
 
-p1 = [f1.pt];
-p2 = [f2.pt];
-
 parse(p,varargin{:});
 match = nan(3,0);
 for i = 1:length(f1)
@@ -30,7 +27,8 @@ for i = 1:length(f1)
     min_ind = nan;
     if p.Results.do_sampson
         pt1 = f1(i).pt;
-        [in,~] = funddist(p.Results.F, [e2h(repmat(pt1, [1, length(f2)])); e2h([f2.pt])], p.Results.sampson_thresh);
+        x = [e2h(repmat(pt1, [1, length(f2)])); e2h([f2.pt])];
+        [in,~] = funddist(p.Results.F, x, p.Results.sampson_thresh);
         if 0,
             figure;
             subplot(121); imshow(i1,[]); hold on; scatter(pt1(1),pt1(2),'red');

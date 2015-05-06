@@ -126,10 +126,10 @@
   "text.aux" 1426064243 740 eb9e2d383c66a05e71a547bdd579e98f ""
   "text.tex" 1426063037 11808 c814800ba6d06c9f9de60689c73a1649 ""
   (generated)
-  "text.dvi"
   "text.aux"
   "text.log"
-["pdflatex"] 1426751891 "text.tex" "text.pdf" "text" 1426752162
+  "text.dvi"
+["pdflatex"] 1429647822 "text.tex" "text.pdf" "text" 1429647823
   "/etc/texmf/web2c/texmf.cnf" 1425826358 1101 af7716885e081ab43982cab7b4672c1a ""
   "/usr/share/texlive/texmf-dist/fonts/map/fontname/texfonts.map" 1272929888 3287 e6b82fe08f5336d4d5ebc73fb1152e87 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/public/amsfonts/cmextra/cmex7.tfm" 1246382020 1004 54797486969f23fa377b128694d548df ""
@@ -290,8 +290,8 @@
   "camera_proj.eps" 1426503604 21855 368034a43575997e75d81cdd0bdc10e4 ""
   "graphs-eps-converted-to.pdf" 1426523258 17994 376c29ed59377fa4e1a7eaebccaf4519 ""
   "graphs.eps" 1426523140 283166 0f4e6b0fe9a49a4494cf3d5288cb5d2e ""
-  "text.aux" 1426751891 1485 de6dd8defc812fe4af5ff14b2357a0db ""
-  "text.tex" 1426751886 9014 072b707588abbb00248df18ebada0817 ""
+  "text.aux" 1429647823 1718 c7a2628abf084b59ca08139ce78a5edd ""
+  "text.tex" 1429647821 12145 6b54f4babcd5e8718e207dc7f2da5547 ""
   (generated)
   "text.aux"
   "text.log"

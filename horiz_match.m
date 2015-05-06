@@ -3,8 +3,8 @@ classdef horiz_match < handle
         match;
         X;
         d;
-        epip_threshy = 1;
-        epip_threshx = 100;
+        epip_threshy = 2;
+        epip_threshx = 50;
     end
     properties (Dependent)
         subs1;
@@ -21,7 +21,7 @@ classdef horiz_match < handle
         function v = get.has3d(obj)
             v = isnan(obj.X(1,:));
         end
-        function obj = horiz_match(tracklets1,tracklets2,param)
+        function obj = horiz_match(i1,i2,ind,tracklets1,tracklets2,param)
             % when the constructor is done obj.match will be of size 2 x N
             % where N is the number of putative matches.  obj.match(1,:)
             % index into tracklets1, while obj.match(2,:) index into
@@ -29,12 +29,10 @@ classdef horiz_match < handle
             % tracklets2(obj.match(2,i))
             if nargin>0
                 k=1;
-                valid1 = find(arrayfun(@(x) x.valid(), tracklets1));
-                valid2 = arrayfun(@(x) x.valid(), tracklets2);
-                % this is here becase arrayfun is horribly slow
-                pts1 = [arrayfun(@(x) x.last().x,tracklets1); arrayfun(@(x) x.last().y,tracklets1)];
-                pts2 = [arrayfun(@(x) x.last().x,tracklets2); arrayfun(@(x) x.last().y,tracklets2)];
-                
+                valid1 = find([tracklets1.valid]);
+                valid2 = [tracklets2.valid];
+                pts1 = [tracklets1.pts];
+                pts2 = [tracklets2.pts];
                 for i=1:length(valid1)
                     min_ssd = inf;
                     best_ft = nan;                    
@@ -54,8 +52,12 @@ classdef horiz_match < handle
                         end
                     end
                     if min_ssd<inf
-                        x1 = tracklets1(valid1(i)).last().pt;
-                        x2 = tracklets2(best_ft).last().pt;
+%                         h = figure;
+%                         subplot(211); imshow(i1); hold on; plot(x,y,'og'); title('left'); hold off;
+%                         subplot(212); imshow(i2); hold on; plot(pts2(1,best_ft),pts2(2,best_ft),'ob');hold off;
+%                         saveas(h,sprintf('epip_match%02d.jpg',i)); close(h);
+                        x1 = [x;y];
+                        x2 = pts2(:,best_ft);
                         [X,d,~] = triangulate_naive(x1,x2,...
                             param.base,param.calib.f,param.calib.cu,param.calib.cv);
                         if d>param.min_disp
@@ -63,6 +65,18 @@ classdef horiz_match < handle
                             obj.d(k) = d;
                             obj.match(1,k) = valid1(i);
                             obj.match(2,k) = best_ft;
+                            
+                            if isnan(tracklets1(valid1(i)).match)
+                                % first time
+                                tracklets1(valid1(i)) = best_ft;
+                                tracklets2(best_ft) = valid1(i);
+                            else
+                                % check consistency with previous match
+                                if tracklets1(valid1(i)) == best_ft
+                                    % the match is consistent
+                                end
+                            end
+                            
                             k=k+1;
                         end
                     end

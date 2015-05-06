@@ -1,24 +1,24 @@
-(TeX-add-style-hook
- "text"
+(TeX-add-style-hook "text"
  (lambda ()
-   (TeX-add-to-alist 'LaTeX-provided-class-options
-                     '(("article" "10pt")))
-   (TeX-run-style-hooks
-    "latex2e"
-    "article"
-    "art10"
-    "amsmath"
-    "amsfonts"
-    "amssymb"
-    "mathtools"
-    "graphicx"
-    "caption"
-    "subcaption"
-    "tikz")
-   (LaTeX-add-labels
-    "eq:prob"
-    "eq:sparsej"
-    "sec: rot_mat")
-   (LaTeX-add-environments
-    "exmp")))
+    (LaTeX-add-environments
+     "exmp")
+    (LaTeX-add-labels
+     "eq:ml"
+     "fig:poses"
+     "fig:proj"
+     "fig:graphs")
+    (TeX-run-style-hooks
+     "tikz"
+     "subcaption"
+     "caption"
+     "graphicx"
+     "mathtools"
+     "amssymb"
+     "amsfonts"
+     "amsmath"
+     ""
+     "latex2e"
+     "art10"
+     "article"
+     "10pt")))
 

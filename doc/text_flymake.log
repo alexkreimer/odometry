@@ -1,13 +1,10 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2015.3.8)  19 MAR 2015 09:58
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2015.3.8)  21 APR 2015 23:00
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
  %&-line parsing enabled.
-**/home/kreimer/alex.kreimer@gmail.com/Technion/projects/harris_covariance/doc/
-text_flymake.tex
-
-(/home/kreimer/alex.kreimer@gmail.com/Technion/projects/harris_covariance/doc/t
-ext_flymake.tex
+**/home/kreimer/prj/featcov/doc/text_flymake.tex
+(/home/kreimer/prj/featcov/doc/text_flymake.tex
 LaTeX2e <2011/06/27>
 Babel <3.9h> and hyphenation patterns for 78 languages loaded.
 (/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
@@ -625,20 +622,31 @@ File: graphs-eps-converted-to.pdf Graphic file (type pdf)
 <use graphs-eps-converted-to.pdf>
 Package pdftex.def Info: graphs-eps-converted-to.pdf used on input line 212.
 (pdftex.def)             Requested size: 345.0pt x 206.94156pt.
- [4] [5] [6] (./text_flymake.aux) ) 
+ [4] [5])
+Runaway argument?
+{Nonline Let $C_i$ and $C_i'$ be the locations of the left/right came\ETC.
+! File ended while scanning use of \@xdblarg.
+<inserted text> 
+                \par 
+<*> /home/kreimer/prj/featcov/doc/text_flymake.tex
+                                                  
+I suspect you have forgotten a `}', causing me
+to read past where you wanted me to stop.
+I'll try to recover; but if the error is serious,
+you'd better type `E' or `X' now and fix your file.
+
+! Emergency stop.
+<*> /home/kreimer/prj/featcov/doc/text_flymake.tex
+                                                  
+*** (job aborted, no legal \end found)
+
+ 
 Here is how much of TeX's memory you used:
- 12972 strings out of 493304
- 247412 string characters out of 6139872
+ 12968 strings out of 493304
+ 247225 string characters out of 6139872
  289048 words of memory out of 5000000
- 16139 multiletter control sequences out of 15000+600000
+ 16137 multiletter control sequences out of 15000+600000
  12339 words of font info for 47 fonts, out of 8000000 for 9000
  957 hyphenation exceptions out of 8191
- 56i,8n,57p,610b,306s stack positions out of 5000i,500n,10000p,200000b,80000s
-
-pdfTeX warning: \pdfdraftmode enabled, not changing output pdf
-
-PDF statistics:
- 41 PDF objects out of 1000 (max. 8388607)
- 0 named destinations out of 1000 (max. 500000)
- 28 words of extra memory for PDF output out of 10000 (max. 10000000)
-
+ 56i,8n,57p,558b,306s stack positions out of 5000i,500n,10000p,200000b,80000s
+!  ==> Fatal error occurred, no output PDF file produced!

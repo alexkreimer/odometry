@@ -223,9 +223,140 @@ the synthetic data:
 We perform the above parameter estimation procedure a number of times
 each time adding a noise to the pixel measurements. For each
 experiment we set a maximum value for standard deviation of noise,
-$\sigma_{max}\in \{1\dotsc 4\}$. For each coordinate of each measurement we generate
-$\sigma \sim U[0,\sigma_{max}]$ and then perturb the measurement
-coordinate by $\epsilon \sim N(0,\sigma^2)$.
+$\sigma_{max}\in \{1\dotsc 4\}$. For each coordinate of each
+measurement we generate $\sigma \sim U[0,\sigma_{max}]$ and then
+perturb the measurement coordinate by $\epsilon \sim N(0,\sigma^2)$.
 
 Figure ~\ref{fig:graphs} presents results.
+
+\section{Essential bundle adjustment}
+
+\subsection{Estimation of motion parameters}
+$R$ describes world frame in terms of camera frame. $q_1$ is a
+direction from $C_2$ to $C_1$ described in $C_2$.
+
+Thus for every pair of correspondences $x,x'$; $(C_1,C_2)$ holds
+\[
+x'^TK^{-1}[q]_{\times}RK^{-1}x=0
+\]
+
+We define the following objective (includes multiple features):
+\[
+F(q,R) = \sum_i^N{ [x_i'^TK^{-1}[q]_{\times}RK^{-1}x_i]^2 } + [\lambda(q^Tq-1)]^2
+\]
+
+\begin{tikzpicture}
+\draw [help lines, dotted] (0,0) grid (4,3);
+\draw [dashed] (0,0) -- (2,2);
+\draw [->] (2,2) -- (1.5,1.5);
+\node [left] at (1.5,1.5) {$R,q_1$};
+\draw [red, fill] (0,0) circle [radius=0.05];
+\node [below left] at (0,0) {$C_1$};
+\node [above left] at (2,2) {$C_2$};
+\draw [red, fill] (2,2) circle [radius=0.05];
+\end{tikzpicture}
+
+\subsection{Gauss Newton iteration}
+
+Let $r(q(t_x,t_y,t_z),R(r_x,r_y,r_z)) \in \mathbf{R}^{N+1}$ be defined as (we further omit the parameterization of the translation and the rotation):
+
+\begin{align*}
+  r_i &= x_i'^TK^{-1}[q]_{\times}RK^{-1}x_i\\
+  r_{N+1} &= \lambda(q^Tq-1)
+\end{align*}
+
+So,
+\begin{align*}
+F(q,R) &= r^Tr = \sum_i^{N+1} r_i^2\\
+(\nabla F)_j& = \sum_i^{N+1} 2 r_i (\nabla r_i)_j\ \text{and thus, } \nabla F = 2J^Tr\quad\text{where, } J=[\nabla r_1 \nabla r_2 \ldots \nabla r_{N+1}]^T\\
+(\nabla^2 F)_{jk} &= 2\sum_i^{N+1} (\nabla r_i)_k (\nabla r_i)_j+r_i(\nabla^2 r_i)_{jk}\ \approx 2\sum_i^{N+1} (\nabla r_i)_k (\nabla r_i)_j\\
+\nabla^2 F &\approx 2J^TJ
+\end{align*}
+
+\subsection{Dogleg algorithm}
+The algorithm sets a trust region radius $\Delta$.  Possible search
+direction is $p = p_{sd}+\lambda(p_N-p_{sd})$ where $\lambda \in [0,1]$ (a compromise
+between steepest descent and Newton directions):
+\[
+\lambda^*=\underset{\lambda}{\text{argmax}}\ \norm{p}\ \text{s.t.}\ \norm{p}\leq\Delta
+\]
+
+\begin{align*}
+  \norm{p}^2 &= \norm{p_{sd}+\lambda(p_N-p_{sd})}^2\\
+  &= \norm{p_{sd}}^2 +2\lambda p_{sd}^T(p_N-p_{sd})+\lambda^2\norm{p_N-p_{sd}}^2 = \Delta^2
+\end{align*}
+
+This is a quadratic equation in $\lambda$ and $\lambda^* =
+\frac{-b+-\sqrt{b^2-4ac}}{2a}$, $a=\norm{p_N-p_{sd}}^2$, $b=2p_{sd}^T(p_N-p_{sd})$, $c= \norm{p_{sd}}^2-\Delta^2$
+
+
+\subsection{Stereo}
+Let $C_i$ and $C_i'$ be the locations of the left/right camera at time
+$i$. The rig is moving rigidly and we are interested to recover this
+motion.
+
+Epipolar constraint for $C_1$ and $C_2$ may be expressed $E_1 =
+[q_1]_{\times}R_1$ and for $C_1'$ and $C_2'$ as $E_2 =
+[q_2]_{\times}R_2$.  Here $q_1,q_2$ are line of sight vectors that are
+described in coordinate frames $C_1$ and $C_2$ respectively. Rotation
+matrices $R_1$ and $R_2$ describe the axes of ? in terms of ?.
+
+
+\begin{tikzpicture}
+\draw [help lines, dotted] (0,0) grid (4,3);
+\draw [dashed] (0,0) -- (2,2);
+\draw [dashed] (3,0) -- (2,2);
+\draw [->] (0,0) -- (.5,.5);
+\node [left] at (.5,.5) {$q_1$};
+\draw [->] (3,0) -- (2.75,.5);
+\node [right] at (2.75,.5) {$q_2$};
+\draw [red, fill] (0,0) circle [radius=0.05];
+\draw [blue, fill] (3,0) circle [radius=0.05];
+\node [below left] at (0,0) {$C_1$};
+\node [below right] at (3,0) {$C_1'$};
+\node [above left] at (2,2) {$C_2$};
+\draw [red, fill] (2,2) circle [radius=0.05];
+\end{tikzpicture}
+
+\[
+f_i(r_x,r_y,r_z,t_x,t_y,t_z) = x_i^T[t]_xRx'_i
+\]
+where
+\[
+R(r_x,r_y,r_z)=R_x(r_x)R_y(r_y)R_z(r_z)=
+\begin{bmatrix}
+  c_yc_z & -c_ys_z &s_y\\
+  s_xs_yc_z+c_xs_z &-s_xs_ys_z+c_xc_z &-s_xc_y\\
+  -c_xs_yc_z+s_xs_z &c_xs_ys_z+s_xc_z &c_xc_y
+\end{bmatrix}
+\] 
+and
+$[t]_x=\begin{bmatrix}0 &-t_z &t_y\\t_z &0 &-t_x\\-t_y &t_x
+  &0\end{bmatrix}$
+
+\begin{align*}
+  \frac{\partial f}{\partial r_x} 
+  &= x_i^T[t]_x\frac{\partial R}{\partial r_x}x'_i
+  &= x_i^T\begin{bmatrix} 0 &-t_z &t_y\\t_z &0 &-t_x\\-t_y &t_x &0 \end{bmatrix}
+  \begin{bmatrix} 0 & 0 &0\\c_xs_yc_z-s_xs_z &-c_xs_ys_z-s_xc_z &-c_xc_y\\
+    s_xs_yc_z+c_xs_z &-s_xs_ys_z+c_xc_z &-s_xc_y \end{bmatrix}x'_i
+\end{align*}
+
+\begin{align*}
+  \frac{\partial f}{\partial r_y} 
+  &= x_i^T[t]_x\frac{\partial R}{\partial r_y}x'_i
+  &= x_i^T\begin{bmatrix} 0 &-t_z &t_y\\t_z &0 &-t_x\\-t_y &t_x &0\\ \end{bmatrix}
+  \begin{bmatrix} -s_yc_z & s_yc_z &c_y\\c_xc_yc_z &-c_xc_ys_z &c_xs_y\\
+    -s_xc_yc_z &s_xc_ys_z &-s_xs_y \end{bmatrix}x'_i
+\end{align*}
+
+\begin{align*}
+  \frac{\partial f}{\partial r_z} 
+  &= x_i^T[t]_x\frac{\partial R}{\partial r_z}x'_i
+  &= x_i^T\begin{bmatrix} 0 &-t_z &t_y\\t_z &0 &-t_x\\-t_y &t_x &0\\ \end{bmatrix}
+  \begin{bmatrix} -c_ys_z& c_ys_z &0\\-s_xs_ys_z+c_xc_z &-s_xs_yc_z-c_xs_z &0\\
+    c_xs_ys_z+c_xs_z &c_xs_yc_z-c_xs_z &0 \end{bmatrix}x'_i
+\end{align*}
+
+
 \end{document}

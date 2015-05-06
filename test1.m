@@ -52,6 +52,9 @@ param.bd = 3;
 param.avg_num = 2;
 param.num_pts = 3;
 param.assert = false;
+param.ransac_iter = 100;
+param.model_size = 3;
+param.inlier_thresh = 2;
 
 % All coordinates are described wrt to the Universe Coordinate System or
 % some other frame that is described in terms of UCS.
@@ -234,8 +237,6 @@ t2 = T2(1:3,4);
 
 dr = norm(a1(1:3)-a2(1:3)); dt = norm(t1-t2);
 end
-
-
 
 function a1 = tget(a,i1,i2)
 % this function assumes that a{j} holds transformation parameters that

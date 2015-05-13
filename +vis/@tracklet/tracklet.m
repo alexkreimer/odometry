@@ -323,19 +323,35 @@ classdef tracklet < handle
             end
         end
         
-        function [X,x] = get_matched(obj,other)
+        function [Xp,xp,x,ind] = get_matched(obj,other)
             % collect 3d data from previous frame and image points from
             % current frame to do estimate motion params
             k=1;
             for i=1:length(obj)
                 if obj(i).valid() && length(obj(i).features)>1
+                    % last feature in the track
                     f1 = obj(i).last();
+                    
+                    % one berfore last
                     pf1 = obj(i).plast();
+                    
+                    % check circle match & see if the disparity was not 0
                     if ~isempty(f1.match) && ~isempty(pf1.match) && ...
                             f1.match==pf1.match && other(f1.match).valid() && ...
                             ~any(isnan(pf1.X))
-                        X(:,k) = pf1.X;
+                        
+                        % 3d in previous frame
+                        Xp(:,k) = pf1.X;
+                        
+                        % image measuremens in current frame
                         x(:,k) = [f1.pt;other(f1.match).last().pt];
+                        
+                        % image meaurements in previous frame
+                        xp(:,k) = [pf1.pt;other(f1.match).plast().pt];
+                        
+                        % index of this tracklet
+                        ind(k) = i;
+                        
                         k = k+1;
                     end
                 end

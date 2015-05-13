@@ -1,6 +1,23 @@
-function x = project(X,K,pose)
-% transform into the camera frame
-X = pose*[X;ones(1,size(X,2))];
-x = K*h2e(X);
-x(3,x(3,:)<0) = nan;
+function [x,visible] = project(P,X,pose)
+
+if nargin>2
+    if size(pose,1) == 3
+        pose = [pose;0 0 0 1];
+    end
+    
+    % convert the points to new camera frame given by 'pose'
+    X = pose\e2h(X);
+else
+    X = e2h(X);
+end
+
+x = P*X;
+
+% visibility of the 3d points
+if nargout>1
+    visible = X(4,:).*x(3,:)>0;
+end
+
+x = h2e(x);
+
 end

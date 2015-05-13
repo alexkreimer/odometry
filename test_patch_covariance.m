@@ -1,4 +1,5 @@
-function kitti_oo()
+function test_patch_covariance()
+
 close all;
 dbstop if error;
 
@@ -9,7 +10,7 @@ image_dir = fullfile(KITTI_HOME, 'sequences', '00');
 poses_file = fullfile(KITTI_HOME, 'poses','00.txt');
 
 first = 1;
-last = 1000;
+last = 100;
 
 % setup camera parameters (KITTI)
 [P0, P1] = kitti_read_calib(image_dir);
@@ -61,47 +62,26 @@ for i=first:last
     [i1,i2] = read_kitti_images(image_dir, i);
     
     if i==first
-        detector1 = vis.HarrisCorners(i1,param.feat_num,param.patchr);
-        detector2 = vis.HarrisCorners(i2,param.feat_num,param.patchr);
-        
-        extractor1 = vis.patch_extractor(i1,detector1.corners,param.patchr);
-        extractor2 = vis.patch_extractor(i2,detector2.corners,param.patchr);
-        
-        features1 = vis.feature(extractor1.center,extractor1.descriptor);
-        features2 = vis.feature(extractor2.center,extractor2.descriptor);
-        
-        tracklets1 = vis.tracklet(features1);
-        tracklets2 = vis.tracklet(features2);
-        
+        detector = vis.HarrisCorners(i1,param.feat_num,param.patchr);
+        extractor = vis.patch_extractor(i1,detector.corners,param.patchr);
+        features = vis.feature(extractor.center,extractor.descriptor);
+        tracklets = vis.tracklet(features);
         %tracklets1.plot(i1,sprintf('frame %d: left',i));
-        %tracklets1.plot(i2,sprintf('frame %d: right',i));
-        % match between current left/right pair
-       tracklets1.hmatch(tracklets2,param);
-    
-        % plot pair matches
-        %figure;
-        %tracklets_plot2(i1,i2,tracklets1(match.subs1),tracklets2(match.subs2),'stereo pair',false);        
     else
         % track features from previous frame into the current frame
-        tracklets1.track(i1,param.searchr,pi1);
-        tracklets2.track(i2,param.searchr,pi2);
-        
+        tracklets.track(i1,param.searchr,pi1);
+     
         % plot left/right tracks
         %figure; tracklets1.pplot(i1,pi1,sprintf('frame %d: left vs prev',i));
-        %figure; tracklets1.pplot(i2,pi2,sprintf('frame %d: right vs prev',i));
 
         % add features from the current frame
-        tracklets1.augment(i1,param.feat_num,param.patchr,5);
-        tracklets2.augment(i2,param.feat_num,param.patchr,5);
+        tracklets.augment(i1,param.feat_num,param.patchr,5);
 
-        % match between current left/right pair
-        tracklets1.hmatch(tracklets2,param);
-        
         % plot pair matches
         %figure;
         %tracklets_plot2(i1,i2,tracklets1(match.subs1),tracklets2(match.subs2),'stereo pair',false);        
         
-        [Xp,xp,x,ind] = tracklets1.get_matched(tracklets2);
+        [X,x] = tracklets.get_matched(tracklets2);
         
         % plot inputs
 %         x0 = h2e(P0*e2h(X));
@@ -111,11 +91,8 @@ for i=first:last
 %         saveas(gcf,fullfile(DBG_DIR,sprintf('pre_matches_%04d.png',i))); close;
         
         % estimate params
-        [a{i},inliers,tr0,predict,rms] = ransac_minimize_reproj(Xp,x,param);
+        [a{i},inliers,tr0,predict,rms] = ransac_minimize_reproj(X,x,param);
         
-        num_pts = size(x,2);
-        x = [xp(1:2,:) xp(3:4,:); x(1:2,:) x(3:4,:)];
-        a_est = estimate_stereo_motion(x,param.K,[0;0;1000],num_pts,eye(3),[param.base,0,0]');
         % plot outputs
 %         gt = mat2tr(poses(:,:,i));
 %         x0 = h2e(P0*e2h(X(:,inliers)));
@@ -139,43 +116,36 @@ for i=first:last
         else
             T1 = [poses_gt(:,:,i);0 0 0 1];     % represents frame #i as seen from frame #0
             T2 = [poses_gt(:,:,i-1);0 0 0 1];   % represents frame #i-1 as seen from frame #0
-            Tgt = T1\T2;
+            Tgt = inv(T1\T2;
             Tgt = Tgt(1:3,:);
         end
         
-        xgt = h2e(param.K*Tgt*e2h(Xp));
-        
-        inliers = colnorm(xgt-x(1:2,:))<5;
+        xgt = h2e(param.K*Tgt*e2h(X));
         
         Test = tr2mat(a{i});
         % predicted feature locations both inliers & outliers
-        xpred = h2e(param.K*Test(1:3,:)*e2h(Xp));
+        xpred = h2e(param.K*Test(1:3,:)*e2h(X));
         
         % image measurements in the previous frame
-        x0 = h2e(P0*e2h(Xp));
+        x0 = h2e(P0*e2h(X));
         
         im = imfuse(i1,pi1,'blend');
         imshow(im); hold on;
-        plot(xpred(1,inliers),xpred(2,inliers),'or',x0(1,inliers),x0(2,inliers),'*y',x(1,inliers),x(2,inliers),'ob',xgt(1,inliers),xgt(2,inliers),'og');
+        plot(xpred(1,:),xpred(2,:),'or',x0(1,:),x0(2,:),'*y',x(1,:),x(2,:),'ob',xgt(1,:),xgt(2,:),'og');
         legend('predicted','initial','measured','gt prediction');
         
         % connect predicted and initial
-        lx = [xpred(1,inliers); x0(1,inliers)]; ly = [xpred(2,inliers); x0(2,inliers)]; line(lx,ly,'color','yellow');
+        lx = [xpred(1,:); x0(1,:)]; ly = [xpred(2,:); x0(2,:)]; line(lx,ly,'color','yellow');
 
         % connect measured and initial
-        lx = [x(1,inliers); x0(1,inliers)]; ly = [x(2,inliers); x0(2,inliers)]; line(lx,ly,'color','yellow');
+        lx = [x(1,:); x0(1,:)]; ly = [x(2,:); x0(2,:)]; line(lx,ly,'color','yellow');
 
         % connect measured and initial
-        lx = [xgt(1,inliers); x0(1,inliers)]; ly = [xgt(2,inliers); x0(2,inliers)]; line(lx,ly,'color','yellow');
+        lx = [xgt(1,:); x0(1,:)]; ly = [xgt(2,:); x0(2,:)]; line(lx,ly,'color','yellow');
         
         title('residuals for all putative matches');
         %saveas(gcf,fullfile(DBG_DIR,sprintf('residuals_%04d.png',i))); close;
         close;
-        
-        data(i).X = Xp(:,inliers);
-        data(i).xgt = xgt(:,inliers);
-        data(i).xm = x(:,inliers);
-        data(i).ind = ind(inliers);
     end
     
     %[x,~] = track2cell(tracks);
@@ -185,8 +155,6 @@ for i=first:last
     %end
     pi1 = i1; pi2 = i2;
 end
-
-save('patches.mat','data');
 
 figure; hold on;
 plot_poses(poses_gt,zeros(3,1),'b');
@@ -325,8 +293,8 @@ end
 function plot_poses(poses,p,ptspec)
 t = nan(3,size(poses,3));
 for i=1:size(poses,3)
-    pos = inv([poses(:,:,i);0,0,0,1]);
-    t(1:3,i) = h2e(pos*[0;0;0;1]);
+    pos = poses(:,:,i);
+    t(1:3,i) = pos*[p;1];
 end
 plot3(t(1,:),t(2,:),t(3,:),ptspec);
 end

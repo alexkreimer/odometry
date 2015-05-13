@@ -4,7 +4,6 @@ dbstop if error;
 
 KITTI_HOME = '/home/kreimer/tmp/KITTI/dataset';
 
-
 image_dir = fullfile(KITTI_HOME, 'sequences', '01');
 poses_file = fullfile(KITTI_HOME, 'poses','01.txt');
 
@@ -13,7 +12,7 @@ last = 5;
 
 % setup camera parameters (KITTI)
 [P0, P1] = kitti_read_calib(image_dir);
-poses = kitti_read_poses(poses_file);
+gt_poses = kitti_read_poses(poses_file);
 
 % baseline, focal, principal point
 param.base = -P1(1,4)/P1(1,1);

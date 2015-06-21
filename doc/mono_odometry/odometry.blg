@@ -1,0 +1,46 @@
+This is BibTeX, Version 0.99d (TeX Live 2013/Debian)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: odometry.aux
+The style file: plain.bst
+Database file #1: sample.bib
+You've used 4 entries,
+            2118 wiz_defined-function locations,
+            525 strings with 4655 characters,
+and the built_in function-call counts, 1243 in all, are:
+= -- 118
+> -- 56
+< -- 0
++ -- 22
+- -- 18
+* -- 87
+:= -- 215
+add.period$ -- 12
+call.type$ -- 4
+change.case$ -- 21
+chr.to.int$ -- 0
+cite$ -- 4
+duplicate$ -- 48
+empty$ -- 105
+format.name$ -- 18
+if$ -- 254
+int.to.chr$ -- 0
+int.to.str$ -- 4
+missing$ -- 5
+newline$ -- 23
+num.names$ -- 8
+pop$ -- 24
+preamble$ -- 1
+purify$ -- 17
+quote$ -- 0
+skip$ -- 28
+stack$ -- 0
+substring$ -- 70
+swap$ -- 5
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 14
+warning$ -- 0
+while$ -- 12
+width$ -- 5
+write$ -- 45

@@ -1,13 +1,9 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2015.3.8)  21 APR 2015 23:00
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2015.4.29)  21 JUN 2015 14:19
 entering extended mode
  restricted \write18 enabled.
- file:line:error style messages enabled.
  %&-line parsing enabled.
-**/home/kreimer/prj/featcov/doc/text_flymake.tex
-(/home/kreimer/prj/featcov/doc/text_flymake.tex
-LaTeX2e <2011/06/27>
-Babel <3.9h> and hyphenation patterns for 78 languages loaded.
-(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+**\input odometry.tex
+(./odometry.tex (/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
 Document Class: article 2007/10/19 v1.4h Standard LaTeX document class
 (/usr/share/texlive/texmf-dist/tex/latex/base/size10.clo
 File: size10.clo 2007/10/19 v1.4h Standard LaTeX file (size option)
@@ -415,7 +411,11 @@ File: pgfmodulematrix.code.tex 2010/08/24  (rcs-revision 1.4)
 (/usr/share/texmf/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibrarytopat
 hs.code.tex
 File: tikzlibrarytopaths.code.tex 2008/06/17 v2.10 (rcs-revision 1.2)
-)))
+))) (/usr/share/texlive/texmf-dist/tex/latex/cite/cite.sty
+LaTeX Info: Redefining \cite on input line 302.
+LaTeX Info: Redefining \nocite on input line 373.
+Package: cite 2010/09/10  v 5.3
+)
 (/usr/share/texmf/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibrarydecor
 ations.pathreplacing.code.tex
 (/usr/share/texmf/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibrarydecor
@@ -449,21 +449,21 @@ ext.code.tex
 \pgf@lib@dec@text@box=\box38
 ))
 \c@exmp=\count127
- (./text_flymake.aux)
-\openout1 = `text_flymake.aux'.
+ (./odometry.aux)
+\openout1 = `odometry.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 38.
-LaTeX Font Info:    ... okay on input line 38.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 38.
-LaTeX Font Info:    ... okay on input line 38.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 38.
-LaTeX Font Info:    ... okay on input line 38.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 38.
-LaTeX Font Info:    ... okay on input line 38.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 38.
-LaTeX Font Info:    ... okay on input line 38.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 38.
-LaTeX Font Info:    ... okay on input line 38.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 39.
+LaTeX Font Info:    ... okay on input line 39.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 39.
+LaTeX Font Info:    ... okay on input line 39.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 39.
+LaTeX Font Info:    ... okay on input line 39.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 39.
+LaTeX Font Info:    ... okay on input line 39.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 39.
+LaTeX Font Info:    ... okay on input line 39.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 39.
+LaTeX Font Info:    ... okay on input line 39.
 
 (/usr/share/texlive/texmf-dist/tex/context/base/supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
@@ -530,123 +530,63 @@ Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: End \AtBeginDocument code.
 
 ABD: EveryShipout initializing macros
-LaTeX Font Info:    Try loading font information for U+msa on input line 40.
+LaTeX Font Info:    Try loading font information for U+msa on input line 41.
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Try loading font information for U+msb on input line 40.
+LaTeX Font Info:    Try loading font information for U+msb on input line 41.
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
-Overfull \hbox (9.7261pt too wide) in paragraph at lines 65--73
-[]\OT1/cmr/m/it/9 Measurement \OT1/cmr/m/n/9 vec-tor is de-fined by im-age ob-s
-er-va-tions: $\OML/cmm/m/it/9 X \OT1/cmr/m/n/9 = [\OML/cmm/m/it/9 x[]; [] ; x[]
-;
- []
 
-
-Overfull \hbox (20.18622pt too wide) in paragraph at lines 74--79
-[]\OT1/cmr/m/it/9 Prediction \OT1/cmr/m/n/9 vec-tor is a func-tion of the pa-ra
-m-e-ter vec-tor $\OML/cmm/m/it/9 ^^R$\OT1/cmr/m/n/9 : $[] = [[]\OML/cmm/m/it/9 
-; [] ; [];
- []
+LaTeX Warning: `!h' float specifier changed to `!ht'.
 
 [1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}] [2]
-Package epstopdf Info: Source file: <camera_poses.eps>
-(epstopdf)                    date: 2015-03-16 13:04:58
-(epstopdf)                    size: 609086 bytes
-(epstopdf)             Output file: <camera_poses-eps-converted-to.pdf>
-(epstopdf)                    date: 2015-03-16 13:13:09
-(epstopdf)                    size: 345595 bytes
-(epstopdf)             Command: <repstopdf --outfile=camera_poses-eps-converted
--to.pdf camera_poses.eps>
-(epstopdf)             \includegraphics on input line 167.
-Package epstopdf Info: Output file is already uptodate.
-
-<camera_poses-eps-converted-to.pdf, id=27, 1414.28375pt x 761.84625pt>
-File: camera_poses-eps-converted-to.pdf Graphic file (type pdf)
-
-<use camera_poses-eps-converted-to.pdf>
-Package pdftex.def Info: camera_poses-eps-converted-to.pdf used on input line 1
-67.
-(pdftex.def)             Requested size: 517.5pt x 278.76324pt.
-
-Overfull \hbox (172.5pt too wide) in paragraph at lines 167--169
- [][] 
+Underfull \hbox (badness 1259) in paragraph at lines 175--175
+\OT1/cmr/m/n/10 ing cam-era trans-la-tion. The cross ra-tio $\OML/cmm/m/it/10 C
+r\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 p[]; p[]; p[]; e\OT1/cmr/m/n/10 ) =
  []
 
-Package epstopdf Info: Source file: <camera_proj.eps>
-(epstopdf)                    date: 2015-03-16 13:00:04
-(epstopdf)                    size: 21855 bytes
-(epstopdf)             Output file: <camera_proj-eps-converted-to.pdf>
-(epstopdf)                    date: 2015-03-16 13:02:57
-(epstopdf)                    size: 7008 bytes
-(epstopdf)             Command: <repstopdf --outfile=camera_proj-eps-converted-
-to.pdf camera_proj.eps>
-(epstopdf)             \includegraphics on input line 174.
-Package epstopdf Info: Output file is already uptodate.
-<camera_proj-eps-converted-to.pdf, id=28, 425.59pt x 319.1925pt>
-File: camera_proj-eps-converted-to.pdf Graphic file (type pdf)
 
-<use camera_proj-eps-converted-to.pdf>
-Package pdftex.def Info: camera_proj-eps-converted-to.pdf used on input line 17
-4.
-(pdftex.def)             Requested size: 310.4979pt x 232.88681pt.
- [3]
-LaTeX Font Info:    Try loading font information for OMS+cmr on input line 193.
+LaTeX Warning: `!h' float specifier changed to `!ht'.
 
-
-(/usr/share/texlive/texmf-dist/tex/latex/base/omscmr.fd
-File: omscmr.fd 1999/05/25 v2.5h Standard LaTeX font definitions
-)
-LaTeX Font Info:    Font shape `OMS/cmr/m/n' in size <9> not available
-(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 193.
-Package epstopdf Info: Source file: <graphs.eps>
-(epstopdf)                    date: 2015-03-16 18:25:40
-(epstopdf)                    size: 283166 bytes
-(epstopdf)             Output file: <graphs-eps-converted-to.pdf>
-(epstopdf)                    date: 2015-03-16 18:27:38
-(epstopdf)                    size: 17994 bytes
-(epstopdf)             Command: <repstopdf --outfile=graphs-eps-converted-to.pd
-f graphs.eps>
-(epstopdf)             \includegraphics on input line 212.
-Package epstopdf Info: Output file is already uptodate.
-
-<graphs-eps-converted-to.pdf, id=32, 1231.60126pt x 738.76pt>
-File: graphs-eps-converted-to.pdf Graphic file (type pdf)
-
-<use graphs-eps-converted-to.pdf>
-Package pdftex.def Info: graphs-eps-converted-to.pdf used on input line 212.
-(pdftex.def)             Requested size: 345.0pt x 206.94156pt.
- [4] [5])
-Runaway argument?
-{Nonline Let $C_i$ and $C_i'$ be the locations of the left/right came\ETC.
-! File ended while scanning use of \@xdblarg.
-<inserted text> 
-                \par 
-<*> /home/kreimer/prj/featcov/doc/text_flymake.tex
-                                                  
-I suspect you have forgotten a `}', causing me
-to read past where you wanted me to stop.
-I'll try to recover; but if the error is serious,
-you'd better type `E' or `X' now and fix your file.
-
-! Emergency stop.
-<*> /home/kreimer/prj/featcov/doc/text_flymake.tex
-                                                  
-*** (job aborted, no legal \end found)
-
- 
+[3] (./odometry.bbl [4]) [5] (./odometry.aux) ) 
 Here is how much of TeX's memory you used:
- 12968 strings out of 493304
- 247225 string characters out of 6139872
- 289048 words of memory out of 5000000
- 16137 multiletter control sequences out of 15000+600000
- 12339 words of font info for 47 fonts, out of 8000000 for 9000
+ 13108 strings out of 493304
+ 249448 string characters out of 6139871
+ 291001 words of memory out of 5000000
+ 16288 multiletter control sequences out of 15000+600000
+ 13701 words of font info for 53 fonts, out of 8000000 for 9000
  957 hyphenation exceptions out of 8191
- 56i,8n,57p,558b,306s stack positions out of 5000i,500n,10000p,200000b,80000s
-!  ==> Fatal error occurred, no output PDF file produced!
+ 56i,10n,57p,422b,614s stack positions out of 5000i,500n,10000p,200000b,80000s
+</usr/share/texlive/texmf-dist/f
+onts/type1/public/amsfonts/cm/cmbx10.pfb></usr/share/texlive/texmf-dist/fonts/t
+ype1/public/amsfonts/cm/cmbx12.pfb></usr/share/texlive/texmf-dist/fonts/type1/p
+ublic/amsfonts/cm/cmbx9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/a
+msfonts/cmextra/cmex9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/ams
+fonts/cm/cmmi10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/
+cm/cmmi5.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi
+6.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb><
+/usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi9.pfb></usr/sh
+are/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share/tex
+live/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/texlive/te
+xmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/texlive/texmf-dis
+t/fonts/type1/public/amsfonts/cm/cmr5.pfb></usr/share/texlive/texmf-dist/fonts/
+type1/public/amsfonts/cm/cmr6.pfb></usr/share/texlive/texmf-dist/fonts/type1/pu
+blic/amsfonts/cm/cmr7.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/ams
+fonts/cm/cmr9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm
+/cmsy5.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy6.
+pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></u
+sr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/shar
+e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti9.pfb>
+Output written on odometry.pdf (5 pages, 225080 bytes).
+PDF statistics:
+ 107 PDF objects out of 1000 (max. 8388607)
+ 78 compressed objects within 1 object stream
+ 0 named destinations out of 1000 (max. 500000)
+ 13 words of extra memory for PDF output out of 10000 (max. 10000000)
+

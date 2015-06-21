@@ -65,7 +65,7 @@ if isempty(best_inliers)
 end
 
 % final optimization iterations
-for i=1:100
+for i=1:200
     [J,residual,predict] = computeJ(X,best_tr,observe,param,best_inliers);
     JtJ = J'*J;
     rc = rcond(JtJ);
@@ -80,7 +80,7 @@ for i=1:100
 end
 
 predict = reshape(predict, [4 numel(best_inliers)]);
-rms = sqrt(sum(residual.*residual)/numel(best_inliers));
+rms = sqrt(sum(residual.*residual)/(4*numel(best_inliers)));
 
 end
 

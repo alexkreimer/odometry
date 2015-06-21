@@ -5,7 +5,7 @@ classdef HarrisCorners < vis.FeatureDetector
         end
         
         function corners = detect(obj)
-            corners = corner(obj.im,obj.num)';
+            corners = corner(obj.im,'harris',obj.num,'QualityLevel', 0.0001)';
             valid = obj.enforce_margin(corners);
             obj.corners = corners(:,valid);
         end

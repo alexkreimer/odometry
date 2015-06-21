@@ -79,6 +79,19 @@ classdef tracklet < handle
                 feature = vis.feature();
             end
         end
+
+        function [features,n1] = tail(obj, n)
+            % returns last n features if they exist
+            % if there are less, n1 is the number of features returned
+            if obj.len>n-1
+                features = obj.features(1:n);
+                n1 = n;
+            else
+                features = obj.features;
+                n1 = obj.len;
+            end
+            return;
+        end
         
         function v = valid(obj)
             % The tracklet is valid if it was updated at the current time
@@ -323,7 +336,7 @@ classdef tracklet < handle
             end
         end
         
-        function [Xp,xp,x,ind] = get_matched(obj,other)
+        function [Xp,xp,x,ind,tail] = get_matched(obj,other)
             % collect 3d data from previous frame and image points from
             % current frame to do estimate motion params
             k=1;
@@ -349,6 +362,13 @@ classdef tracklet < handle
                         % image meaurements in previous frame
                         xp(:,k) = [pf1.pt;other(f1.match).plast().pt];
                         
+                        if nargout==5
+                            [ft1,~] = obj(i).tail(3);
+                            [ft2,~] = other(f1.match).tail(3);
+                            
+                            tail{k} = [ft1.pt;ft2.pt];
+                        end
+                        
                         % index of this tracklet
                         ind(k) = i;
                         
@@ -356,6 +376,45 @@ classdef tracklet < handle
                     end
                 end
             end
+        end
+        
+        function plot_circles(obj,i1,pi1,i2,pi2,other)
+            k=1;
+            for i=1:length(obj)
+                if obj(i).valid() && length(obj(i).features)>1
+                    % last feature in the track
+                    f1 = obj(i).last();
+                    
+                    % one berfore last
+                    pf1 = obj(i).plast();
+                    
+                    % check circle match & see if the disparity was not 0
+                    if ~isempty(f1.match) && ~isempty(pf1.match) && ...
+                            f1.match==pf1.match && other(f1.match).valid() && ...
+                            ~any(isnan(pf1.X))
+
+                        % image measuremens in current frame
+                        x1(:,k) = f1.pt;
+                        x2(:,k) = other(f1.match).last().pt;
+                        px1(:,k) = pf1.pt;
+                        px2(:,k) = other(f1.match).plast().pt;
+                        k = k+1;
+                    end
+                end
+            end
+            
+            px1(2,:) = px1(2,:) + size(i1,1);
+            x2(1,:)  = x2(1,:)  + size(i1,2);
+            px2(1,:) = px2(1,:) + size(i1,2);
+            px2(2,:) = px2(2,:) + size(i1,1);
+            
+            im = [i1,i2;pi1,pi2];
+            imshow(im); hold on;
+            for i=1:k-1
+                plot([x1(1,i) x2(1,i) px2(1,i) px1(1,i) x1(1,i)],...
+                    [x1(2,i) x2(2,i) px2(2,i) px1(2,i) x1(2,i)]);
+            end
+            hold off;
         end
         
         function pplot(obj,im,pim,titl)
@@ -379,6 +438,42 @@ classdef tracklet < handle
             hold on;
             plot(pts(1,:),pts(2,:),'or');
             title(titl);
+        end
+        
+        function w = fit_line(obj,n)
+            if nargin==1
+                n = 3;
+            end
+            
+            valid = [obj.valid];
+            
+            for i=find(valid)
+                feat = obj(i).features;
+                if length(feat)>=n
+                    % last feature in the track
+                    f1 = obj(i).last();
+                    
+                    % one berfore last
+                    pf1 = obj(i).plast();
+                    
+                    % check circle match & see if the disparity was not 0
+                    if ~isempty(f1.match) && ~isempty(pf1.match) && ...
+                            f1.match==pf1.match
+                        pts = [feat.pt];
+                        % last 3 points
+                        pts = pts(:,end-2:end);
+                        x = pts(1,:)';
+                        y = pts(2,:)';
+                        A = [ones(3,1),x,y];
+                        [c,n] = clsq(A,2);
+                        plotline(x,y,'o',c,n,'--');
+                        r = A*[c;n];
+                        r_tot(i) = r'*r/numel(r);
+                    end
+                end
+            end
+            figure;
+            plot(sort(r_tot));
         end
     end
 end

@@ -1,4 +1,4 @@
-function [best_tr,best_inliers,tr0,predict,rms] = ransac_minimize_reproj(X,observe,param)
+function [best_tr, best_inliers, tr0, predict, rms] = ransac_minimize_reproj(X, observe, param)
 %% RANSAC & LM to estimate rigid motion parameters
 % _X_ is 3d point cloud, s.t. size(X) = [3 N]
 %

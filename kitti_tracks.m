@@ -4,6 +4,7 @@ close all;
 dbstop if error;
 
 KITTI_HOME = '/home/kreimer/KITTI/dataset';
+KITTI_HOME = fullfile('F:', 'KITTI' , 'dataset');
 DBG_DIR = 'debug';
 
 image_dir  = fullfile(KITTI_HOME, 'sequences', '00');
@@ -54,7 +55,7 @@ param.bd = 3;
 param.threshx = 100;
 param.threshy = 2;
 
-param.do_dbg = false;
+param.do_dbg = true;
 
 % main loop, iteration per image pair
 for i=first:last
@@ -79,10 +80,10 @@ for i=first:last
 
         if param.do_dbg
             figure;
-            subplot(211); tracklets1.plot(i1,sprintf('track init, left frame %d',i));
-            subplot(212); tracklets2.plot(i2,sprintf('track init, right frame %d',i));
+            subplot(211); tracklets1.plot(i1, sprintf('features init, left frame %d',i));
+            subplot(212); tracklets2.plot(i2,sprintf('features init, right frame %d',i));
             filename = fullfile(DBG_DIR, sprintf('new_features_%04d.png',i));
-            print(filename, '-dpng', '-r300');
+            save_dbg(filename);
             close;
         end
 
@@ -90,9 +91,9 @@ for i=first:last
         tracklets1.hmatch(tracklets2, param);
         
         if param.do_dbg
-            tracklets1.plot_matches(tracklets2, i1, i2);
+            tracklets1.plot_matches(tracklets2, i1, i2, sprintf('left vs. right %d', i));
             filename = fullfile(DBG_DIR, sprintf('epipolar_matches_%04d.png',i));
-            print(filename, '-dpng', '-r300');
+            save_dbg(filename);
             close;
         end
 else
@@ -103,13 +104,25 @@ else
         
         if param.do_dbg
             % plot left/right tracks
-            tracklets1.pplot1(i1,pi1,sprintf('frame %d: left vs prev',i));
-            tracklets2.pplot1(i2,pi2,sprintf('frame %d: right vs prev',i));
-            print(fullfile(DBG_DIR,sprintf('feature_tracks_%04d.png',i)), '-dpng', '-r300'); close;
+            tracklets1.pplot1(i1, pi1, sprintf('frame %d: left',i), sprintf('frame %d: prev left',i));
+            filename = fullfile(DBG_DIR,sprintf('left_tracks_%04d.png',i));
+            save_dbg(filename);
+            close;            
+            tracklets2.pplot1(i2, pi2, sprintf('frame %d: right',i), sprintf('frame %d: prev right',i));
+            filename = fullfile(DBG_DIR,sprintf('right_tracks_%04d.png',i));
+            save_dbg(filename);
+            close;
         end
         
         % match between current left/right pair
         tracklets1.hmatch(tracklets2,param);
+
+        if param.do_dbg
+            tracklets1.plot_matches(tracklets2, i1, i2, sprintf('frame %d: match of left/right under epipolar constraint', i));
+            filename = fullfile(DBG_DIR, sprintf('epipolar_matches_%04d.png',i));
+            save_dbg(filename);
+            close;
+        end
 
         % add features from the current frame
         tracklets1 = tracklets1.augment(i1, param.feat_num,param.patchr, 5);
@@ -117,11 +130,14 @@ else
         
         if param.do_dbg
             figure; k = tracklets1.plot_circles(i1,pi1,i2,pi2,tracklets2);
-            print(fullfile(DBG_DIR,sprintf('circles_%04d.png',i)), '-dpng', '-r300'); close;
+            save_dbg(fullfile(DBG_DIR,sprintf('circles_%04d.png',i)));
+            close;
             fprintf('%d circles\n', k);
             
             figure; k = tracklets1.plot_circles1(i1,pi1,i2,pi2,tracklets2);
-            print(fullfile(DBG_DIR,sprintf('circles1_%04d.png',i)), '-dpng', '-r300'); close;
+            filename = fullfile(DBG_DIR,sprintf('circles1_%04d.png',i));
+            save_dbg(filename);
+            close;
         end
 
         % plot pair matches
@@ -133,3 +149,4 @@ else
 end
     save('tracklets','tracklets1', 'tracklets2');
 end
+

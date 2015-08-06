@@ -133,11 +133,11 @@ classdef tracklet < handle
             % is given by searchr.  This will create a new feture in each
             % track that was successfully tracked
 
-            if param.do_dbg
-                imshow(pi1);
-                hold on;
-                title('red are lost, green are tracked');
-            end
+%             if param.do_dbg
+%                 imshow(pi1);
+%                 hold on;
+%                 title('red are lost, green are tracked');
+%             end
             pts = [obj.pts];
             valid = [obj.valid];
             
@@ -295,7 +295,7 @@ classdef tracklet < handle
             fprintf('%d after\n', ptnum);
         end
         
-        function plot_matches(obj, other, i1, i2)
+        function plot_matches(obj, other, i1, i2, titl)
             valid1 = find([obj.valid]);
             pts1 = [obj.pts];
             pts2 = [other.pts];
@@ -320,8 +320,8 @@ classdef tracklet < handle
             pt(3,:) = pt(3,ind);
             pt(4,:) = pt(4,ind);
             figure;
-            subplot(211); imshow(im1); hold on; scatter(pt(1, :), pt(2, :), 10, c);
-            subplot(212); imshow(im2); hold on; scatter(pt(3, :), pt(4, :), 10, c);
+            subplot(211); imshow(im1); hold on; scatter(pt(1, :), pt(2, :), 10, c); title(sprintf('%s; left', titl));
+            subplot(212); imshow(im2); hold on; scatter(pt(3, :), pt(4, :), 10, c); title(sprintf('%s; right', titl));
         end
         
         function hmatch(obj, other, param)
@@ -531,7 +531,7 @@ classdef tracklet < handle
             title(titl);
         end
 
-        function pplot1(obj, im, prev_im, titl)
+        function pplot1(obj, im, prev_im, titl1, titl2)
             pts = [obj.ppts];
             valid = [obj.ppvalid];
             pts = pts(:,valid);
@@ -547,10 +547,10 @@ classdef tracklet < handle
             pts(4,:) = pts(4, ind);
             c = linspace(1, 255, length(pts));
             figure;
-            subplot(211); imshow(im,[]); hold on; scatter(pts(1,:), pts(2,:), [], c);
-            subplot(212); imshow(prev_im,[]); hold on; scatter(pts(3,:), pts(4,:), [], c);
+            subplot(211); imshow(im,[]); hold on; scatter(pts(1,:), pts(2,:), [], c); title(titl1);
+            subplot(212); imshow(prev_im,[]); hold on; scatter(pts(3,:), pts(4,:), [], c); title(titl2)
             
-            title(titl);
+            
         end
 
         function pts = valid_pts(obj)

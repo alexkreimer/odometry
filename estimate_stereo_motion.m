@@ -1,6 +1,6 @@
 % This function estimates the motion of a stereo rig between 2 pairs of stereo frames
 
-function a_est = estimate_stereo_motion(x,K,num_pts,R0,t0,varargin)
+function a_est = estimate_stereo_motion(x, K, num_pts, R0, t0, param, varargin)
 % x(1:2,1:num_pts) feature coords as seen in the left camera, pose {i-1}
 % x(3:4,1:num_pts) same features coords the left camera, pose {i}
 %
@@ -32,10 +32,43 @@ parse(p,varargin{:});
 x1 = x(3:4, 1:num_pts); % points from prev i1
 x2 = x(1:2, 1:num_pts); % points from i1
 
-[F1_est, ~, T1_est, inliers1] = estimateF(x1, x2, K, .5);  % estimate E/F and decompose the essential
-if ~isempty(p.Results.gt) && ~isempty(p.Results.i1) && ~isempty(p.Results.pi1)
-    dbg_estimation(F1_est, K, T1_est, inv([p.Results.gt; 0 0 0 1]), x1, x2, inliers1, p.Results.pi1, p.Results.i1,...
-        'prev left', 'left', p.Results.DBG_DIR, p.Results.ind, 1, 0);
+debug = 1;
+
+fprintf('1st estimation\n');
+if debug
+    T_gt = [p.Results.gt; 0 0 0 1];
+
+    X = nan(4, num_pts);
+    for i = 1:num_pts
+         X(:,i) = vgg_X_from_xP_nonlin([x(3:4, i) x(3:4, num_pts+i)], {param.P1, param.P2});
+    end
+    X = h2e(X);
+    observe = [x(1:2, 1:num_pts); x(1:2, (num_pts+1):end)];
+    [a_est, ~, ~, ~, ~] = ransac_minimize_reproj(X, observe, param);
+    T_est1 = tr2mat(a_est);
+    E_est1 = skew(T_est1(1:3,4))*T_est1(1:3,1:3);
+    F_est1 = inv(K')*E_est1*inv(K);
+    
+    fig = figure;
+    imshow(repmat(p.Results.pi1, [1 1 3]));
+    hold on;
+    scatter(x(3,1:num_pts), x(4, 1:num_pts), [], X(3,:));
+    title('features colored according to their depth, all values le 0 map to 0, ge 50 map to 50');
+    caxis([0 50]);
+    colormap jet;
+    hold off;
+    dcm_obj = datacursormode(fig);
+    myupdatefcn1 = @(emp, event_obj) myupdatefcn(emp, event_obj, x(:,1:num_pts), X);
+    set(dcm_obj, 'UpdateFcn', myupdatefcn1)
+
+    param1 = struct('i1', p.Results.pi1, 'i2', p.Results.i1, 'i1_name',...
+        'prev left', 'i2_name', 'left', 'T_gt', T_gt, 'dbg_save', 0,...
+        'single_save', 0, 'DBG_DIR', p.Results.DBG_DIR, 'ind1', p.Results.ind,...
+        'ind2', 1, 'F_est1', F_est1, 'E_est1', E_est1);
+    
+    [F1_est, ~, T1_est, inliers1] = estimateF(x1, x2, K, 2, param1);  % estimate E/F and decompose the essential
+else
+    [F1_est, ~, T1_est, inliers1] = estimateF(x1, x2, K, 2);  % estimate E/F and decompose the essential
 end
 
 % if we have ground truth, verify estimation
@@ -44,16 +77,25 @@ if ~isempty(p.Results.a0)
     assertT(T_est,T);
 end
 
+fprintf('2st estimation\n');
+
 % Estimate motion between initial position of the right camera and current
 % position of the left camera
 x1 = x(3:4,(num_pts+1):(2*num_pts)); % points from pi2
 x2 = x(1:2,1:num_pts);               % points from i1
-[F2_est, ~, T2_est, inliers2] = estimateF(x1, x2, K);  % estimate E/F and decompose the essential
-if ~isempty(p.Results.gt) && ~isempty(p.Results.i1) && ~isempty(p.Results.pi2)
+
+if debug
     T2_gt = [p.Results.gt; 0 0 0 1];
     T0 = [R0,t0; 0 0 0 1];
     T2_gt = inv(T2_gt*T0);
-    dbg_estimation(F2_est, K, T2_est, T2_gt, x1, x2, inliers2, p.Results.pi2, p.Results.i1, 'prev right', 'current left', p.Results.DBG_DIR, p.Results.ind, 2, 0);
+    
+    param2 = struct('i1', p.Results.pi2, 'i2', p.Results.i1, 'i1_name',...
+        'prev right', 'i2_name', 'left', 'T_gt', T2_gt, 'dbg_save', 0,...
+        'single_save', 1, 'DBG_DIR', p.Results.DBG_DIR, 'ind1', p.Results.ind,...
+        'ind2', 1, 'F_est1', F_est1, 'E_est1', E_est1);
+    [F2_est, ~, T2_est, inliers2] = estimateF(x1, x2, K, 2, param2);  % estimate E/F and decompose the essential
+else
+    [F2_est, ~, T2_est, inliers2] = estimateF(x1, x2, K, 2);  % estimate E/F and decompose the essential
 end
 
 if ~isempty(p.Results.a0)
@@ -142,165 +184,228 @@ plot(x2(1,:), x2(2,:), 'go');
 epiLines = epipolarLine(F', x1');
 points = lineToBorderPoints(epiLines, size(i2));
 line(points(:, [1,3])', points(:, [2,4])');
-truesize;
+%truesize;
 end
 
-function err = residual_error(F, x1, x2, inliers)
+function err = residual_error(F, x1, x2, inliers, param, varargin)
 % computes average error from putative matches to the correspnding epipolar
 % lines
+
+p = inputParser;
+addOptional(p, 'dist_fn', @dist_sampson);
+parse(p,varargin{:});
 
 if nargin==3
     inliers = 1:length(x1);
 end
 
-err=0;
-d = nan(2, length(inliers));
-k = 1;
-for i = inliers(:)'
+dist_fn = p.Results.dist_fn;
+
+d = dist_fn(F, x1(:, inliers), x2(:, inliers));
+err = sum(abs(d(:)))/length(inliers);
+
+if nargin<5
+    return
+end
+
+figure;
+width1 = .5;
+[N, edges] = histcounts(d(1,:));
+bar(edges(1:end-1), N, width1, 'FaceColor', [0.2,0.2,0.5]);
+
+if size(d,1) > 1
+    hold on;
+    [N, edges] = histcounts(d(2,:));
+    bar(edges(1:end-1), N, width1/2, 'FaceColor',[0,0.7,0.7],'EdgeColor',[0,0.7,0.7]);
+    legend(param.i1_name, param.i2_name);
+    title(sprintf('signed distance to the epipolar lines, average %f', err));
+else
+    legend(param.i1_name);
+    title(sprintf('sampson distance, average %f', err));
+end
+
+hold off;
+
+end
+
+% symmetric signed distance from pts to the epilines
+function d = dist_symm_epiline(F, x1, x2)
+
+n1 = size(x1, 2);
+n2 = size(x2, 2);
+assert(n1 == n2);
+d = nan(2, n1);
+for i = 1:n1
     l2 = F*[x1(:, i); 1];
     l2 = l2/sqrt(l2(1)*l2(1)+l2(2)*l2(2));
     d1 = [x2(:, i); 1]'*l2;
-    d(1, k) = d1;
+    d(1, i) = d1;
     
     l1 = F'*[x2(:, i); 1];
     l1 = l1/sqrt(l1(1)*l1(1)+l1(2)*l1(2));
     
     d2 = [x1(:, i); 1]'*l1;
-    d(2, k) = d2;
-    
-    err = err + abs(d1) + abs(d2);
-    k = k + 1;
+    d(2, i) = d2;
 end
 
-err = err/numel(inliers);
-
-figure;
-subplot(211);
-hist(d(1,:));
-subplot(212);
-hist(d(2,:));
 end
 
+function d = dist_sampson(F, x1, x2)
+pts1h = e2h(x1);
+pts2h = e2h(x2);
 
-function dbg_estimation(F_est, K, T_est, T_gt, x1, x2, inliers, i1, i2, title1, title2, DBG_DIR, i, j, single_save)
+pfp = (pts2h' * F)';
+pfp = pfp .* pts1h;
+d = sum(pfp, 1) .^ 2;
 
-t_gt = T_gt(1:3, 4);
-R_gt = T_gt(1:3, 1:3);
-F_gt = inv(K')*skew(t_gt)*R_gt*inv(K);
-err = residual_error(F_gt, x1, x2, inliers);
-fprintf('GT: left vs prev left: average residual error %g [px] for %d matches\n', err, length(inliers));
+epl1 = F * pts1h;
+epl2 = F' * pts2h;
+d = d ./ (epl1(1,:).^2 + epl1(2,:).^2 + epl2(1,:).^2 + epl2(2,:).^2);
 
-pose_error = T_est\T_gt;
+end
+
+function [F_est, E_est, T_est, inliers] = estimateF(x1, x2, K, thresh, param1)
+
+if nargin == 3
+    thresh = 2; %px
+end
+% Estimate fundamental: x2'*F*x1
+[F_est, inliers] = estimateFundamentalMatrix(x1', x2', 'DistanceType',...
+    'Sampson', 'Method', 'RANSAC', 'DistanceThreshold', thresh, 'NumTrials', 4000);
+inliers = find(inliers);
+
+% compute essential
+E_est = K'*F_est*K;
+
+% Decompose essential
+T_est = decompose_essential(E_est, K, [x1;x2]);
+
+if nargin<5
+    return
+end
+
+% use 5-point alg as a check
+% x1_norm = nan(3, length(x1));
+% x2_norm = nan(3, length(x2));
+% for i = 1:size(x1,2)
+%     x1_norm(:, i) = K\[x1(:, i); 1];
+%     x2_norm(:, i) = K\[x2(:, i); 1];
+% end
+% evec = calibrated_fivepoint(x1_norm, x2_norm);
+
+F_est1 = param1.F_est1;
+E_est1 = param1.E_est1;
+
+% note that the objective optimizes sampson distance and the error here
+% below is a epipolar distance, which means that the numeric values will
+% probably be different
+err = residual_error(F_est, x1, x2, inliers, param1);
+fprintf('F_est %s vs %s: residual error %g [px] for %d inliers\n',...
+    param1.i1_name, param1.i2_name, err, numel(inliers));
+
+% reconstruct F back from R,t
+E_rec = skew(T_est(1:3,4))*T_est(1:3,1:3);
+F_rec = inv(K')*E_rec*inv(K);
+
+% calc residuals for the reconstructed F
+err = residual_error(F_rec, x1, x2, inliers, param1);
+fprintf('F_rec %s vs %s: residual error %g [px] for %d inliers\n',...
+    param1.i1_name, param1.i2_name, err, numel(inliers));
+
+% eigenvalue constraint of the essential says that it has to have 2
+% identical eigenvalues
+lambda = eig(E_est); lambda = lambda/lambda(2);
+e_est = null(F_est); e_est = e_est/e_est(3);
+fprintf('epipole of F_est: (%f, %f), eigen values of E_est: %f, %f, %f\n',...
+    e_est(1), e_est(2), lambda(1), lambda(2), lambda(3));
+
+lambda = eig(E_rec); lambda = lambda/lambda(2);
+e_rec = null(F_rec); e_rec = e_rec/e_rec(3);
+fprintf(['epipole of F_rec: (%f,%f) eigenvalues of E_rec (essential ',...
+    'reconstructed after decomposition): %f, %f, %f\n'], e_rec(1), e_rec(2),...
+    lambda(1), lambda(2), lambda(3));
+
+t_gt = param1.T_gt(1:3, 4);
+R_gt = param1.T_gt(1:3, 1:3);
+E_gt = skew(t_gt)*R_gt;
+F_gt = inv(K')*E_gt*inv(K);
+err = residual_error(F_gt, x1, x2, inliers, param1);
+fprintf('F_gt: %s vs %s: residual error %g [px] for %d matches\n',...
+    param1.i1_name, param1.i2_name, err, length(inliers));
+
+lambda = eig(E_gt); lambda = lambda/lambda(2);
+e_gt = null(F_gt); e_gt = e_gt/e_gt(3);
+fprintf('epipole of F_gt: (%f %f) eigen values of E_gt: %f, %f, %f\n',...
+    e_gt(1), e_gt(2), lambda(1), lambda(2), lambda(3));
+
+err = residual_error(F_est1, x1, x2, inliers, param1);
+fprintf('F_est1 %s vs %s: residual error %g [px] for %d inliers\n',...
+    param1.i1_name, param1.i2_name, err, numel(inliers));
+
+% eigenvalue constraint of the essential says that it has to have 2
+% identical eigenvalues
+lambda = eig(E_est1); lambda = lambda/lambda(2);
+e_est1 = null(F_est1); e_est1 = e_est1/e_est1(3);
+fprintf('epipole of F_es1t: (%f, %f), eigen values of E_est: %f, %f, %f\n',...
+    e_est1(1), e_est1(2), lambda(1), lambda(2), lambda(3));
+
+fprintf('epipole distance e_rec, e_est: %f\n', norm(e_rec - e_est));
+fprintf('epipole distance e_gt, e_est: %f\n', norm(e_gt - e_est));
+fprintf('epipole distance e_gt, e_est1: %f\n', norm(e_est1 - e_gt));
+fprintf('epipole distance e_est, e_est1: %f\n', norm(e_est1 - e_est));
+
+T_est = inv([T_est;0 0 0 1]);
+pose_error = T_est\param1.T_gt;
 fprintf('orientation error: %g [rad]\n', rot_error(pose_error));
 
-plot_epip(F_est, x1(:, inliers), x2(:, inliers), i1, i2, title1, title2);
-save_dbg(fullfile(DBG_DIR, sprintf('epip_%04d_est_%d.png', i, j)));
-%close;
+plot_epip(F_est, x1(:, inliers), x2(:, inliers), param1.i1, param1.i2,...
+   sprintf('est: %s', param1.i1_name), sprintf('est: %s', param1.i2_name));
 
-plot_epip(F_gt, x1(:, inliers), x2(:, inliers), i1, i2, sprintf('GT: %s', title1),...
-    sprintf('GT: %s', title2));
-save_dbg(fullfile(DBG_DIR, sprintf('epip_%04d_gt_%d.png', i, j)));
-%close
+if param1.dbg_save
+    save_dbg(fullfile(param1.DBG_DIR, sprintf('epip_%04d_est_%d.png', param1.ind1,...
+        param1.ind2)));
+    close;
+end
 
-if single_save
+plot_epip(F_gt, x1(:, inliers), x2(:, inliers), param1.i1, param1.i2,...
+    sprintf('GT: %s', param1.i1_name), sprintf('GT: %s', param1.i2_name));
+
+if param1.dbg_save
+    save_dbg(fullfile(param1.DBG_DIR, sprintf('epip_%04d_gt_%d.png', param1.ind1,...
+        param1.ind2)));
+    close
+end
+
+if param1.single_save
     for k = inliers(:)'
         figure; ax = axes;        
-        showMatchedFeatures(i1, i2, x1(:, k)', x2(:, k)', 'montage', 'Parent', ax,...
+        showMatchedFeatures(param1.i1, param1.i2, x1(:, k)', x2(:, k)', 'montage', 'Parent', ax,...
             'PlotOptions', {'ro','go','y-'});
         title(ax, 'Candidate point matches');
-        save_dbg(fullfile(DBG_DIR, sprintf('matches_%04d_%d_%d.png', i, j, k)));
+        file_name = fullfile(param1.DBG_DIR, sprintf('matches_%04d_%d_%d.png', param1.ind1, param1.ind2, k));
+        save_dbg(file_name);
         close;
     end
 else
     figure; ax = axes;
-    showMatchedFeatures(i1, i2, x1(:,inliers)', x2(:,inliers)', 'Parent',ax);
-    title(ax, 'Candidate point matches'); legend(ax, 'Matched points 1','Matched points 2');
-    save_dbg(fullfile(DBG_DIR, sprintf('matches_%04d_%d.png', i, j))); close
+    showMatchedFeatures(param1.i1, param1.i2, x1(:,inliers)', x2(:,inliers)', 'Parent',ax);
+    hold on;
+    plot(e_est(1), e_est(2), 'g*', e_est1(1), e_est1(2), 'r*', e_gt(1), e_gt(2), 'b*');
+    legend('matches1', 'matches2', 'estimated', 'estimated1', 'gt');
+    title(ax, 'Candidate point matches');
+    if param1.dbg_save
+        save_dbg(fullfile(DBG_DIR, sprintf('matches_%04d_%d.png', param1.ind1, param1.ind2)));
+        close
+    end
 end
 
 end
 
-function [F_est, E_est, T_est, inliers] = estimateF(x1, x2, K, thresh)
+function txt = myupdatefcn(empt, event_obj, x, X)
+% Customizes text of data tips
 
-if nargin==3
-    thresh = 2;
-end
-% Estimate fundamental: x2'*F*x1
-tic; [F_est, inliers] = estimateFundamentalMatrix(x1', x2', 'DistanceType', 'Sampson', 'Method', 'RANSAC', 'DistanceThreshold', thresh, 'NumTrials', 4000); toc;
-inliers = find(inliers);
-err = residual_error(F_est, x1, x2, inliers);
-fprintf('fundamental estimation, left vs prev left: average residual error %g [px] for %d inliers\n', err, numel(inliers));
-% compute essential
-E_est = K'*F_est*K;
-% Decompose essential
-T_est = decompose_essential(E_est, K, [x1;x2]);
-T_est = inv([T_est;0 0 0 1]);
-
-n = length(inliers);
-num_trials = 100;
-poses = nan(6, num_trials);
-sample = nan(8, num_trials);
-for i = 1:num_trials
-    sample(:,i) = randperm(n,8);
-    F = estimateFundamentalMatrix(x1(:, inliers(sample(:,i)))', x2(:, inliers(sample(:,i)))', 'Method', 'Norm8Point');
-    E = K'*F*K;
-    T = decompose_essential(E, K, [x1;x2]);
-    poses(:,i) = mat2tr(inv([T;0 0 0 1]));
-end
-
-[f,xi] = ksdensity(poses(1,:));
-figure;
-subplot(161); plot(xi,f); title('rx');
-[f,xi] = ksdensity(poses(2,:));
-subplot(162); plot(xi, f); title('ry');
-[f,xi] = ksdensity(poses(3,:));
-subplot(163); plot(xi, f); title('rz');
-[f,xi] = ksdensity(poses(4,:));
-subplot(164); plot(xi, f); title('x');
-[f,xi] = ksdensity(poses(5,:));
-subplot(165); plot(xi, f); title('y');
-[f,xi] = ksdensity(poses(6,:));
-subplot(166); plot(xi, f); title('z');
-
-
-% m = mean(poses,2);
-% v = var(poses,0,2);
-% 
-% good = true(1,num_trials);
-% for i = 1:num_trials
-%     for j=1:6
-%         good(i) = good(i) & abs(poses(j,i)-m(j)) < 1*sqrt(v(j));
-%     end
-% end
-% 
-% sample = sample(:,good);
-% sample = reshape(sample, [prod(size(sample)) 1]);
-% sample = unique(sample);
-% 
-% inliers = inliers(sample);
-% n = length(inliers);
-% num_trials = 100;
-% poses = nan(6, num_trials);
-% sample = nan(8, num_trials);
-% for i = 1:num_trials
-%     sample(:,i) = randperm(n,8);
-%     F = estimateFundamentalMatrix(x1(:, inliers(sample(:,i)))', x2(:, inliers(sample(:,i)))', 'Method', 'Norm8Point');
-%     E = K'*F*K;
-%     T = decompose_essential(E, K, [x1;x2]);
-%     poses(:,i) = mat2tr(inv([T;0 0 0 1]));
-% end
-% 
-% [f,xi] = ksdensity(poses(1,:));
-% figure;
-% subplot(161); plot(xi,f); title('rx');
-% [f,xi] = ksdensity(poses(2,:));
-% subplot(162); plot(xi, f); title('ry');
-% [f,xi] = ksdensity(poses(3,:));
-% subplot(163); plot(xi, f); title('rz');
-% [f,xi] = ksdensity(poses(4,:));
-% subplot(164); plot(xi, f); title('x');
-% [f,xi] = ksdensity(poses(5,:));
-% subplot(165); plot(xi, f); title('y');
-% [f,xi] = ksdensity(poses(6,:));
-% subplot(166); plot(xi, f); title('z');
+pos = get(event_obj,'Position');
+d = x(3:4,:) - repmat(pos',[1 length(x)]);
+[~, i] = min(sum(d.*d));
+txt = {['Depth: ', num2str(X(3,i))], ['x: ', sprintf('%d %d', x(1,i), x(3,i))], ['d: ', sprintf('x:%d y:%d', x(1,i)-x(3,i), x(2,i)-x(4,i))]};
 end

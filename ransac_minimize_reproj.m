@@ -6,6 +6,7 @@ function [best_tr, best_inliers, tr0, predict, rms] = ransac_minimize_reproj(X, 
 % rotation/translation).  The function assumes that
 % observed(1:2,j)/observe(3:4,j) are the projections of X(:,j).  It also
 % allows for some degree of mismatches.
+
 % param is a structure that holds various parameters (TODO: describe
 % params here)
 % best_tr is a 6-vector of motion params that will be estimated.
@@ -33,7 +34,7 @@ for j=1:param.ransac_iter
     end
 
     for i=1:param.lm_max_iter
-        [J,residual,~] = computeJ(X,tr,observe,param,active);
+        [J, residual, ~] = computeJ(X, tr, observe, param, active);
         JtJ = J'*J;
         rc = rcond(JtJ);
         if isnan(rc) || rc<1e-12
@@ -47,13 +48,12 @@ for j=1:param.ransac_iter
             tr = tr+p_gn;
         end
     end
+    
     if status,
         active = 1:size(X,2);
-        [~,residual,~] = computeJ(X,tr,observe,param,active);
-        res = reshape(residual.*residual,[4 numel(active)]);
-        res = sum(res);
-        inliers = find(res<param.inlier_thresh*param.inlier_thresh);
-        if numel(inliers)>numel(best_inliers)
+        [~ ,residual, ~] = computeJ(X, tr, observe, param, active);
+        inliers = compute_inliers(residual, param.inlier_thresh, active);
+        if length(inliers) > length(best_inliers)
             best_tr = tr;
             best_inliers = inliers;
         end
@@ -66,7 +66,7 @@ end
 
 % final optimization iterations
 for i=1:200
-    [J,residual,predict] = computeJ(X,best_tr,observe,param,best_inliers);
+    [J, residual, predict] = computeJ(X, best_tr, observe, param, best_inliers);
     JtJ = J'*J;
     rc = rcond(JtJ);
     if isnan(rc) || rc<1e-12
@@ -79,9 +79,14 @@ for i=1:200
     best_tr = best_tr+p_gn;
 end
 
+inliers = compute_inliers(residual, param.inlier_thresh, best_inliers);
+
 predict = reshape(predict, [4 numel(best_inliers)]);
 rms = sqrt(sum(residual.*residual)/(4*numel(best_inliers)));
 
+err = colnorm(predict-observe(:,best_inliers));
+% histogram(err);
+% title('reprojection error distribution');
 end
 
 function [J,residual,predict] = computeJ(X,tr,observe,param,active)
@@ -197,3 +202,13 @@ A = bsxfun(@minus,X0,mean(X0,2))';
 [tr(1),tr(2),tr(3)] = decompose_rotation(R);
 tr(4:6) = -R*mean(X0,2)+mean(X1,2);
 end
+
+function inliers = compute_inliers(residuals, thresh, active)
+
+dist = reshape(residuals.*residuals, [4 numel(active)]);
+
+inliers = dist < thresh*thresh;
+inliers = inliers(1,:) & inliers(2,:);
+inliers = find(inliers);
+end
+

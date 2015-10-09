@@ -167,17 +167,17 @@ classdef tracklet < handle
                 try
                     cc = normxcorr2(double(template), double(patch));
                 catch
-                    if param.do_dbg
-                        plot(c(1), c(2), '.r')
-                    end
+%                     if param.do_dbg
+%                         plot(c(1), c(2), '.r')
+%                     end
                     continue;
                 end
                 
                 max_cc = max(cc(:));
                 if max_cc < param.search_thresh
-                    if param.do_dbg
-                        plot(c(1), c(2), '.r')
-                    end
+%                     if param.do_dbg
+%                         plot(c(1), c(2), '.r')
+%                     end
                     
                     continue;
                 else
@@ -185,15 +185,15 @@ classdef tracklet < handle
                 end
                 
                 if length(xpeak)>1
-                    if param.do_dbg
-                        plot(c(1), c(2), '.r')
-                    end
+%                     if param.do_dbg
+%                         plot(c(1), c(2), '.r')
+%                     end
                     continue;
                 end
 
-                if param.do_dbg
-                    plot(c(1), c(2), '.g')
-                end
+%                 if param.do_dbg
+%                     plot(c(1), c(2), '.g')
+%                 end
 
                 xpeak = xpeak - param.patchr;
                 ypeak = ypeak - param.patchr;
@@ -295,6 +295,7 @@ classdef tracklet < handle
             fprintf('%d after\n', ptnum);
         end
         
+        % plot matches cross-stereo pair
         function plot_matches(obj, other, i1, i2, titl)
             valid1 = find([obj.valid]);
             pts1 = [obj.pts];
@@ -311,17 +312,35 @@ classdef tracklet < handle
                     k = k+1;
                 end
             end
-            c = linspace(1,255,length(pt));
-            im1 = cat(3,i1,i1,i1);
-            im2 = cat(3,i2,i2,i2);
+            
+            % convert images to rgb, because we want to display matches in
+            % color
+            grey2rgb = @(im) cat(3, im, im, im);
+            i1 = grey2rgb(i1);
+            i2 = grey2rgb(i2);
+            
+            % sort the features w.r.t. x corrdinate
             [~, ind] = sort(pt(1,:));
-            pt(1,:) = pt(1,ind);
-            pt(2,:) = pt(2,ind);
-            pt(3,:) = pt(3,ind);
-            pt(4,:) = pt(4,ind);
+            pt = pt(:, ind);
+            
+            % display the matches
             figure;
-            subplot(211); imshow(im1); hold on; scatter(pt(1, :), pt(2, :), 10, c); title(sprintf('%s; left', titl));
-            subplot(212); imshow(im2); hold on; scatter(pt(3, :), pt(4, :), 10, c); title(sprintf('%s; right', titl));
+            subplot(211);
+            imshow(i1);
+            hold on;
+            scatter(pt(1, :), pt(2, :), 10, pt(1,:));
+            colormap jet;
+            title(sprintf('%s; left image', titl));
+            
+            subplot(212);
+            imshow(i2);
+            hold on;
+            % we color the matches in the right frame the same color as in
+            % the left frame so that if there is a mis-match, color
+            % continuity will break
+            scatter(pt(3, :), pt(4, :), 10, pt(1, :));
+            colormap jet;
+            title(sprintf('%s; right image', titl));
         end
         
         function hmatch(obj, other, param)
@@ -489,35 +508,34 @@ classdef tracklet < handle
             end
             
             [~, ind] = sort(x1(1,:));
-            x1(1,:) = x1(1, ind);
-            x1(2,:) = x1(2, ind);
-            
-            x2(1,:) = x2(1, ind);
-            x2(2,:) = x2(2, ind);
-            
-            px1(1,:) = px1(1, ind);
-            px1(2,:) = px1(2, ind);
-            
-            px2(1,:) = px2(1, ind);
-            px2(2,:) = px2(2, ind);
+            x1  = x1(:, ind);
+            x2  = x2(:, ind);
+            px1 = px1(:, ind);
+            px2 = px2(:, ind);
             
             px1(2,:) = px1(2,:) + size(i1,1);
             x2(1,:)  = x2(1,:)  + size(i1,2);
             px2(1,:) = px2(1,:) + size(i1,2);
             px2(2,:) = px2(2,:) + size(i1,1);
             
-            i1 = cat(3,i1,i1,i1);
-            i2 = cat(3,i2,i2,i2);
-            pi1 = cat(3,pi1,pi1,pi1);
-            pi2 = cat(3,pi2,pi2,pi2);
-            
-            im = [i1,i2;pi1,pi2];
-            c = linspace(1,255,length(x1));
-            imshow(im); hold on;
-            scatter(x1(1,:), x1(2,:), [], c);
-            scatter(x2(1,:), x2(2,:), [], c);
-            scatter(px1(1,:), px1(2,:), [], c);
-            scatter(px2(1,:), px2(2,:), [], c);
+            grey2rgb = @(im) cat(3, im, im, im);            
+            i1  = grey2rgb(i1);
+            i2  = grey2rgb(i2);
+            pi1 = grey2rgb(pi1);
+            pi2 = grey2rgb(pi2);
+
+            % compose the 4 image view
+            im = [i1, i2; pi1, pi2];
+
+            imshow(im);
+            hold on;
+            c = x1(1,:);
+            scatter(x1(1,:), x1(2,:), 10, c);
+            scatter(x2(1,:), x2(2,:), 10, c);
+            scatter(px1(1,:), px1(2,:), 10, c);
+            scatter(px2(1,:), px2(2,:), 10, c);
+            title('circular matches');
+            colormap jet;
             hold off;
         end
         
@@ -531,26 +549,33 @@ classdef tracklet < handle
             title(titl);
         end
 
-        function pplot1(obj, im, prev_im, titl1, titl2)
+        % plot matches tracklet
+        function pplot1(obj, i1, prev_i1, t)
             pts = [obj.ppts];
             valid = [obj.ppvalid];
             pts = pts(:,valid);
             
-            im = cat(3,im,im,im);
-            prev_im = cat(3,prev_im, prev_im, prev_im);
-            
+            grey2rgb = @(im) cat(3, im, im, im);
+            i1 = grey2rgb(i1);
+            prev_i1 = grey2rgb(prev_i1);
+
             [~, ind] = sort(pts(1,:));
+            pts = pts(:, ind);
             
-            pts(1,:) = pts(1, ind);
-            pts(2,:) = pts(2, ind);
-            pts(3,:) = pts(3, ind);
-            pts(4,:) = pts(4, ind);
-            c = linspace(1, 255, length(pts));
             figure;
-            subplot(211); imshow(im,[]); hold on; scatter(pts(1,:), pts(2,:), [], c); title(titl1);
-            subplot(212); imshow(prev_im,[]); hold on; scatter(pts(3,:), pts(4,:), [], c); title(titl2)
+            subplot(211);
+            imshow(i1);
+            hold on;
+            scatter(pts(1,:), pts(2,:), 10, pts(1,:));
+            colormap jet;
+            title(sprintf('%s; current', t));
             
-            
+            subplot(212);
+            imshow(prev_i1);
+            hold on;
+            scatter(pts(3,:), pts(4,:), 10, pts(1, :));
+            colormap jet;
+            title(sprintf('%s; previous', t));
         end
 
         function pts = valid_pts(obj)

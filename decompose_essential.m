@@ -1,4 +1,4 @@
-function T = decompose_essential(E,K,x)
+function T = decompose_essential(E, K, x)
 % Decompose essential matrix E and resolve the twisted pair ambiguity by
 % veryfing the depth of the reconstructed points
 %
@@ -7,7 +7,7 @@ function T = decompose_essential(E,K,x)
 % for point j
 
 
-[U,~,V] = svd(E);
+[U,S,V] = svd(E);
 
 % H&Z solution
 
@@ -32,6 +32,12 @@ s(:,:,1) = [R1 +t];
 s(:,:,2) = [R2 +t];
 s(:,:,3) = [R1 -t];
 s(:,:,4) = [R2 -t];
+
+E_norm = E/E(3,3);
+for i = 1:4
+    E1(:,:,i) = skew(s(1:3,4,i))*s(1:3,1:3,i);
+    E1(:,:,i) = E1(:,:,i)/E1(3,3,i);
+end
 
 num_pts = size(x,2);
 max_inliers = 0;

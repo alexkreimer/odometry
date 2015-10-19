@@ -4,10 +4,11 @@ close all
 dbstop if error;
 
 KITTI_HOME = '/home/kreimer/KITTI/dataset';
-KITTI_HOME = fullfile('F:', 'KITTI' , 'dataset');
-DBG_DIR = fullfile('F:', 'debug');
+KITTI_HOME = '/media/kreimer/my_drive/record_20150720/';
+DBG_DIR = fullfile('/home/kreimer/tmp', 'debug');
 
-image_dir  = fullfile(KITTI_HOME, 'sequences', '00');
+sequence = 's00';
+image_dir  = fullfile(KITTI_HOME, 'sequences', sequence);
 poses_file = fullfile(KITTI_HOME, 'poses','00.txt');
 
 % setup camera parameters (KITTI)
@@ -18,8 +19,9 @@ param = kitti_params(P0, P1);
 gt = process_gt(poses_gt);
 info = [];
 % load features
-load tracks;
+load(['tracks', sequence]);
 num_frames = length(info);
+num_frames = 2;
 poses1 = nan(4, 4, num_frames);
 poses1(:,:,1) = inv([eye(3) zeros(3,1); 0 0 0 1]);
 poses2 = poses1;
@@ -145,8 +147,8 @@ for i = 2:num_frames
     test_est_F(pin);
 end
 
-savePoses('00_f.txt', poses1);
-savePoses('00_3d.txt', poses2);
+savePoses([sequence, '_f.txt'], poses1);
+savePoses([sequence, '_3d.txt'], poses2);
 end
 
 function plot_circles(px, x, i1, pi1, i2, pi2)

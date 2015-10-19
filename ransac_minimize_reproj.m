@@ -26,7 +26,7 @@ for j=1:param.ransac_iter
     tr = zeros(6,1);
     if param.init
         X0 = X(:,active); X1 = trg(observe(:,active),param);
-        if ~any(isnan(X1(:)))
+        if ~any(isnan(X1(:))) && ~any(isinf(X1(:))) && ~any(isinf(X0(:)))
             tr = solve3d23d(X0,X1); tr0 = tr;
         end
     else

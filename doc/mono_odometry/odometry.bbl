@@ -16,6 +16,12 @@ R.~I. Hartley and A.~Zisserman.
 \newblock {\em Multiple View Geometry in Computer Vision}.
 \newblock Cambridge University Press, ISBN: 0521540518, second edition, 2004.
 
+\bibitem{marquardt1963algorithm}
+Donald~W Marquardt.
+\newblock An algorithm for least-squares estimation of nonlinear parameters.
+\newblock {\em Journal of the Society for Industrial \& Applied Mathematics},
+  11(2):431--441, 1963.
+
 \bibitem{zhang1998determining}
 Zhengyou Zhang.
 \newblock Determining the epipolar geometry and its uncertainty: A review.

@@ -225,19 +225,44 @@ algorithm outline:
 \end{figure}
 
 
-\subsection{Refinement step}
+\subsection{Essential Matrix refinement step}
 
-At this step we have a (hopefully) good initial guess for the motion
-of the rig and we would like to refine it. Such two-step approach is
-common for the camera motion estimation algorithms.  There are
-numerous ways to address this question, reviewed in
-~\cite{Botterill-etal-2011c}.  As the authors suggest we use Sampson's
-error, that is given by:
+We follow approach proposed in ~\cite{Botterill-etal-2011c} to refine
+camera motion parameters. Let $r_i(E)$ be the Sampson's error
+approximation:
+
 \[
 r_i(E) = \frac{x_i'^TEx_i}{\sqrt{(x_i'^TE)^2_0+(x_i'^TE)^2_1+(Ex_i)^2_0+(Ex_i)^2_1}}
 \]
 
-We define the following objective:
+If point localization errors are approximately Gaussian, given N
+correctly matched features $\{(x_i,x_i') | i=1\ldots N\}$ the MLE of E is approximately
+the point where $\sum_{i=1}^{N} r_i(E)^2$ is minimized.
+
+It is common to minimize functions in the form of sum of squares using
+the Levenberg-Marquardt (LM) algorithm ~\cite{marquardt1963algorithm},
+a dynamically damped version of Gauss-Newton.  It is also common to
+use robust cost functions to cope with outliers (which break Gaussian
+residual assumption).  This is known as Iteratively Reweighted Least
+Squares, or IRLS ~\cite{Hartley2004}.  To minimize a function
+$\sum_{i=1}^N C(r_i)$ for an arbitrary cost function C using IRLS,
+weights $\{w_i\}$ are chosen so that $(w_ir_i)^2=C(r_i)$. The function
+$\sum_{i=1}^N (w_ir_i)^2$ is minimized by LM, with weights recomputed
+at each iteration.
+
+$E$ is parameterized as a function $E(q,t)$ of a unit translation
+vector $t$, and a rotation, which is expressed as a quaternion
+$q$. Unit quaternions represent 3D rotations as 4D vectors. 4D unit
+vectors form the differential manifold $\mathbb{S}^3$ (a unit sphere
+in $R^4$).
+
+At each iteration, the manifold $\mathbb{S}^3$ is parameterized as
+three orthogonal vectors $\tau_1,\tau_2,\tau_3$ tangent to the sphere
+$\mathbb{S}^3$ at $q$.  For each correspondence $(x_i,x_i')$, the
+derivative of the cost function in the direction $\tau_j$ is computed
+by finite differences.
+
+ We define the following objective:
 \begin{align*}
   F &= \sum_{i=1}^{N_1}{ r_i(E_1)^2 } + \sum_{j=1}^{N_2}{ r_j(E_2)^2 }
   + \norm{Qc-t_0}^2 + \frac{\lambda}{w(\hat{r_t})}(Cr_t - \hat{Cr})^2

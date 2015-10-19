@@ -1,0 +1,56 @@
+This is BibTeX, Version 0.99d (TeX Live 2013/Debian)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: proposal.aux
+The style file: ieeetr.bst
+Illegal, another \bibstyle command---line 45 of file proposal.aux
+ : \bibstyle
+ :          {plain}
+I'm skipping whatever remains of this command
+Database file #1: proposal.bib
+Warning--empty school in Moravec:1980:OAN:909315
+Warning--empty school in Matthies:1989:DSV:916891
+Warning--empty booktitle in orguner2007statistical
+Warning--empty year in orguner2007statistical
+Warning--empty journal in matthies1989dynamic
+You've used 23 entries,
+            1876 wiz_defined-function locations,
+            614 strings with 7619 characters,
+and the built_in function-call counts, 6382 in all, are:
+= -- 638
+> -- 209
+< -- 0
++ -- 79
+- -- 56
+* -- 428
+:= -- 859
+add.period$ -- 27
+call.type$ -- 23
+change.case$ -- 21
+chr.to.int$ -- 0
+cite$ -- 28
+duplicate$ -- 357
+empty$ -- 650
+format.name$ -- 56
+if$ -- 1573
+int.to.chr$ -- 0
+int.to.str$ -- 23
+missing$ -- 21
+newline$ -- 77
+num.names$ -- 23
+pop$ -- 109
+preamble$ -- 1
+purify$ -- 0
+quote$ -- 0
+skip$ -- 236
+stack$ -- 0
+substring$ -- 429
+swap$ -- 134
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 0
+warning$ -- 5
+while$ -- 64
+width$ -- 25
+write$ -- 231
+(There was 1 error message)

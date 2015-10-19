@@ -1,0 +1,63 @@
+\documentclass[10pt]{article}         %% What type of document you're writing.
+
+\usepackage{amsmath,amsfonts,amssymb,mathtools}   %% AMS mathematics macros
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\DeclarePairedDelimiter\abs{\lvert}{\rvert}%
+\DeclarePairedDelimiter\norm{\lVert}{\rVert}%
+
+\title{Visual Odometry: Literature Survey}
+\author{Alex Kreimer}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\end{abstract}
+
+\subsection{A way to parameterize rotations}
+~\cite{schmidt2001using} proposes a method to use quaternions in an
+unconstrained nonlinear optimization.  Quaternions representing
+rotation have four elements but only three degrees of freedom, since
+they have to be of norm one.  This constraint has to be taken into
+account when applying e.g. Levenberg-Marquardt algorithm.  One of the
+ways to address this issue is to use appropriate parameterization
+(others are a projection step and Lagrange multipliers). Well known
+parameterizations are Euler angles and axis-angle representation.
+
+~\cite{hornegger1999representation} call a parameterization fair if it
+does not introduce more numerical sensitivity than inherent to the
+problem itself.  This is guaranteed, if any rigid transformation of
+the space to be parameterized results in an orthogonal transformation
+of the parameters.  Both axis-angle and quaternion parameterizations
+are fair, while Euler angles is not.
+
+Authors search for a parameteriation that:
+\begin{enumerate}
+\item is minimal, i.e. uses only three parameters
+\item the three parameters may be changed arbitrarily by the optimization algorithm
+\item the resulting quaternion has always norm 1.
+\end{enumerate}
+
+This new approach is based on the observation that all quaternions of
+norm-1 lie on the unit sphere in $\mathbb{R}^4$.  The authors use the
+shortest connection between two points on a sphere, i.e. a great
+circle.  For describing a movement on the sphere starting at
+$\mathbf{h_0}$ they use a vector $v_4$ lying in the tangential
+hyperplane that touches the sphere at $\mathbf{h_0}$. This hyper-plane
+is a subspace of $\mathbb{R}^4$, thus vectors in this plane may be
+represented as 3-vectors with respect to a plane-local coordinate
+frame.
+
+Experiments are made on a synthetic (small) data-set.  The authors
+perform bundle adjustment and compare their approach with axis-angle
+representation.  The conclusion is that this representation performs
+better for rotations, for transnational motion both method are
+approximately equal.
+
+\bibliography{survey}{}
+\bibliographystyle{plain}
+\end{document}

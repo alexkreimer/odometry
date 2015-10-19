@@ -1,0 +1,15 @@
+\begin{thebibliography}{1}
+
+\bibitem{hornegger1999representation}
+Joachim Hornegger and Carlo Tomasi.
+\newblock Representation issues in the ml estimation of camera motion.
+\newblock In {\em Computer Vision, 1999. The Proceedings of the Seventh IEEE
+  International Conference on}, volume~1, pages 640--647. IEEE, 1999.
+
+\bibitem{schmidt2001using}
+Jochen Schmidt and Heinrich Niemann.
+\newblock Using quaternions for parametrizing 3-d rotations in unconstrained
+  nonlinear optimization.
+\newblock In {\em VMV}, volume~1, pages 399--406, 2001.
+
+\end{thebibliography}

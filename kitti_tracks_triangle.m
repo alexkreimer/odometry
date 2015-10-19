@@ -9,16 +9,16 @@ close all;
 dbstop if error;
 
 KITTI_HOME = '/home/kreimer/KITTI/dataset';
-KITTI_HOME = fullfile('F:', 'KITTI' , 'dataset');
-DBG_DIR = fullfile('F:', 'debug');
+KITTI_HOME = '/media/kreimer/my_drive/record_20150720/';
+DBG_DIR = fullfile('/home/kreimer/tmp/', 'debug');
 
-image_dir  = fullfile(KITTI_HOME, 'sequences', '00');
-poses_file = fullfile(KITTI_HOME, 'poses','00.txt');
+sequence = 's00';
+image_dir  = fullfile(KITTI_HOME, 'sequences', sequence);
 
 detect = @harris;
 extract = @patch_extractor;
 
-det_param.corner_num = 2000;
+det_param.corner_num = 4000;
 det_param.quality = .0001;
 ext_param.r = 3;
 match_param.r = 100;
@@ -96,7 +96,7 @@ for i = 1:270
         first = false;
     end
 end
-save('tracks.mat', 'info');
+save(['tracks', sequence, '.mat'], 'info');
 end
 
 function match = prune_circle(m12, m11, m22, m12_prv)

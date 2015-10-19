@@ -129,7 +129,7 @@ if nargin == 3
 end
 % Estimate fundamental: x2'*F*x1
 [F_est, inliers] = estimateFundamentalMatrix(x1', x2', 'DistanceType',...
-    'Sampson', 'Method', 'RANSAC', 'DistanceThreshold', thresh, 'NumTrials', 4000);
+    'Sampson', 'Method', 'RANSAC', 'DistanceThreshold', thresh, 'NumTrials', 500);
 inliers = find(inliers);
 
 % compute essential
@@ -138,6 +138,20 @@ E_est = K'*F_est*K;
 % Decompose essential
 T_est = decompose_essential(E_est, K, [x1;x2]);
 
+% refine motion params
+x1 = x1(:,inliers);
+x2 = x2(:,inliers);
+N = size(x1,2);
+p1 = nan(3,N);
+p2 = nan(3,N);
+for i = 1:N
+    p1(:,i) = inv(K)*[x1(:,i); 1];
+    p2(:,i) = inv(K)*[x2(:,i); 1];
+end
+[R, t] = essential_lm(T_est(1:3,1:3), T_est(1:3,4), p1, p2);
+T_est = [R t; 0 0 0 1];
+E_est = skew(t)*R;
+F_est = inv(K')*E_est*inv(K);
 end
 
 function txt = myupdatefcn(empt, event_obj, x, X)

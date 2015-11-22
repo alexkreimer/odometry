@@ -19,6 +19,10 @@ function [best_tr, best_inliers, tr0, predict, rms] = ransac_minimize_reproj(X, 
 % rms is a reprojection error rms
 
 status = false;
+best_tr = zeros(6,1);
+tr0 = [];
+predict = [];
+rms = 0;
 best_inliers = [];
 tr0 = nan(6,1);
 for j=1:param.ransac_iter
@@ -65,7 +69,7 @@ if isempty(best_inliers)
 end
 
 % final optimization iterations
-for i=1:200
+for i=1:50
     [J, residual, predict] = computeJ(X, best_tr, observe, param, best_inliers);
     JtJ = J'*J;
     rc = rcond(JtJ);
@@ -211,4 +215,3 @@ inliers = dist < thresh*thresh;
 inliers = inliers(1,:) & inliers(2,:);
 inliers = find(inliers);
 end
-

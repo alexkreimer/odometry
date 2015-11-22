@@ -24,6 +24,45 @@ pout.est1.inliers = inliers1;
 pout.est1.x1 = pin.c1p;
 pout.est1.x2 = pin.c1;
 pout.est1.name = 'previous left vs. current left';
+pout.xr = 0;
+
+% compute cross-ratios
+e = null(F1);
+e = h2e(e);
+n = size(pin.tracksx,2);
+xr = nan(n,1);
+yr = nan(n,1);
+for i = 1:n
+    vx = e(1);
+    x  = pin.tracksx(1,i);
+    xtt= pin.tracksx(2,i);
+    xt = pin.tracksx(3,i);
+    xr(i) = (xt-x)*(xtt-vx)/((xtt-xt)*(x-vx));
+    
+    vy = e(1);
+    y  = pin.tracksx(1,i);
+    ytt= pin.tracksx(2,i);
+    yt = pin.tracksx(3,i);
+    yr(i) = (yt-y)*(ytt-vy)/((ytt-yt)*(y-vy));
+end
+
+if n>0
+    xr(isinf(xr)) = [];
+    yr(isinf(yr)) = [];
+
+    % use both x corrdinate and y corrdinate ratios, same same
+    data = [xr;yr];
+    pd = fitdist(data,'Normal');
+    
+    % plot the distribution
+    x_values = min(data):.1:max(data);
+    y = pdf(pd, x_values);
+    plot(x_values,y,'LineWidth',2)
+
+    % save the result for output
+    pout.xr = pd.mu;
+end
+
 
 % Estimate motion between initial position of the right camera and current
 % position of the left camera
@@ -36,26 +75,42 @@ pout.est2.x1 = pin.c2p;
 pout.est2.x2 = pin.c1;
 pout.est2.name = 'previous right vs. current left';
 
+T1 = inv(T1);
+T2 = inv(T2);
+
 t1 = T1(1:3,4);
 R1 = T1(1:3, 1:3);
 t2 = T2(1:3,4);
 R2 = T2(1:3,1:3);
 
 % Solve for scale of the motion
-A = [t1, -t2];
-b = pin.t0;
-[U,S,V] = svd(A);
-b = U'*b;
-d = diag(S);
-y = nan(size(A,2),1);
-for j=1:length(d)
-    y(j) = b(j)/d(j);
-end
-c = V*y;
+% A = [t1, -t2];
+% b = pin.t0;
+% [U,S,V] = svd(A);
+% b = U'*b;
+% d = diag(S);
+% y = nan(size(A,2),1);
+% for j=1:length(d)
+%     y(j) = b(j)/d(j);
+% end
+% c = V*y;
 
-% form the output
-t1 = t1*c(1);
-T1 = [R1 t1;0 0 0 1];
+P1 = [0 0 0]';
+P2 = pin.t0;
+c = [-t1'*t1 t2'*t1; -t1'*t2 t2'*t2]\[ P2'*t1-P1'*t1; P2'*t2-P1'*t2];
+
+P1 = P1 - c(1)*t1;
+P2 = P2 - c(2)*t2;
+
+t1 = P1 + (P2 - P1)/2;
+t2 = t1 - pin.t0;
+
+% update motion direction of the cameras
+T1 = [R1 t1; 0 0 0 1];
+T2 = [R2 t2; 0 0 0 1];
+
+pout.est1.T_final = T1;
+pout.est2.T_final = T2;
 
 a_est = mat2tr(T1);
 

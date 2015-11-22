@@ -9,10 +9,10 @@ close all;
 dbstop if error;
 
 KITTI_HOME = '/home/kreimer/KITTI/dataset';
-KITTI_HOME = '/media/kreimer/my_drive/record_20150720/';
+%KITTI_HOME = '/media/kreimer/my_drive/record_20150720/dataset';
 DBG_DIR = fullfile('/home/kreimer/tmp/', 'debug');
 
-sequence = 's00';
+sequence = '04';
 image_dir  = fullfile(KITTI_HOME, 'sequences', sequence);
 
 detect = @harris;
@@ -88,15 +88,19 @@ for i = 1:270
         info(cur).mc = mc;
         info(cur).mt = mt;
         
-        %pt1  = info(cur).c1(:, mt(1,:));
-        %pt1p = info(prv).c1(:, mt(2,:));
-        %pt2p = info(prv).c2(:, mt(3,:));
-        %plot_triangles(i1, info(prv).i1, info(prv).i2, pt1, pt1p, pt2p);
+%         pt1  = info(cur).c1(:, mt(1,:));
+%         pt1p = info(prv).c1(:, mt(2,:));
+%         pt2p = info(prv).c2(:, mt(3,:));
+%         plot_triangles(i1, info(prv).i1, info(prv).i2, pt1, pt1p, pt2p);
+        val = info(cur);
+        save(['tracks/tracks_', sequence, '_', int2str(cur), '.mat'], 'val');
     else
+        val = info(cur);
+        save(['tracks/tracks_', sequence, '_', int2str(cur), '.mat'], 'val');        
         first = false;
     end
 end
-save(['tracks', sequence, '.mat'], 'info');
+save(['tracks', sequence, '.mat'], 'info', '-v7.3');
 end
 
 function match = prune_circle(m12, m11, m22, m12_prv)

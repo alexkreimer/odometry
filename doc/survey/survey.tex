@@ -18,6 +18,53 @@
 \begin{abstract}
 \end{abstract}
 
+\subsection{Real Time Localization and 3D Reconstruction}
+The work ~\cite{mouragnon2006real} estimates a motion of a calibrated
+camera (mono) set on an experimental vehicle.  Interest points (Harris) are
+tracked and matched (ZNCC score). Robust estimates of the camera motion are
+computed in real-time, key-frames are selected and permit the features
+3D reconstruction.  The author introduce a procedure they call local
+bundle adjustment that ensures both good accuracy and consistency over
+long sequences. ~\cite{nister2004efficient} is used to initialize the pose.
+
+\subsection{Refining essential matrix estimates from RANSAC}
+The paper deals with the problem of estimating relative pose of two
+cameras from outlier contaminated feature correspondences.  It is a
+common practice to use RANSAC with conjunction with a linear method to
+estimate a model (in this case the Essential matrix) and then to
+refine it using non-linear optimization
+method. ~\cite{botterillrefining} evaluate several refinement methods
+which minimize functions of Sampson's error.  All perform well on
+range sets of correspondences or sets with low outlier rates; but many
+perform poorly otherwise.  The most accurate solution is give by
+minimizing a robust function (Blake-Zisserman) of a Sampson's error.
+The rotations are parameterized as quaternions and the optimization is
+performed over the essential manifold, see ~\cite{schmidt2001using}.
+The authors use IRLS combined with LM ~\cite{marquardt1963algorithm}
+method to optimize the objective.
+
+\subsection{Vision-based robot localization without explicit object models}
+~\cite{dudek1996vision} propose a solution to localize a robot in an
+unknown 2d environment using visual input. The authors train neural
+net as a regression model N(I)=(x,y).  As an input for the net they
+use image statistics (first and second moments of the edge
+distributions, mean edge orientations, densities of lines).
+
+\subsection{Visual Homing: Surfing on the Epipoles}
+~\cite{basri1999visual} propose a solution for visual homing.  Using
+this method a robot can be sent to desired positions and orientations
+in 3D space specified by single images taken from these positions.
+The method is based on estimating epipolar geometry between a pair of
+views. A 3D model of the environment is not required.  Using the
+epipolar geometry most of the parameters which specify the differences
+in position and orientation of the camera between the two images are
+recovered.  From a pair of images translation may be recovered only up
+to a signed scale.  In order to find out the real distance the robot
+make an extra step and takes an additional image.  The authors prove
+that when the camera moves on a straight line the features move along
+the epipolar lines while their coordinates and the coordinate of the
+epipole obey the cross-ratio relation.
+
 \subsection{A way to parameterize rotations}
 ~\cite{schmidt2001using} proposes a method to use quaternions in an
 unconstrained nonlinear optimization.  Quaternions representing

@@ -25,7 +25,7 @@ param.min_disp = -inf;
 param.ba_w = 3;                              % BA window
 
 % reprojection error minimization error threshold
-param.inlier_thresh = 1;
+param.inlier_thresh = 4;
 param.model_size = 3;
 param.ransac_iter = 500;
 % observation dimension

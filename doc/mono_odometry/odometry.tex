@@ -193,17 +193,42 @@ rotation completely and translation up to scale.  In case of a stereo
 rig we can also determine the scale of the translation.  Below is the
 algorithm outline:
 
+\subsection{Shortest distance between skew lines}\label{skew}
+Consider two lines $l_1,l_2$ specified by points $P_1,P_2$ and directions
+$\mathbf{v_1},\mathbf{v_2}$ respectively.
+
+General point on $l_1$ is: $\hat{P_1}=P_1+t_1\mathbf{v_1}$, on $l_2$:
+$\hat{P_2}=P_2+t_2\mathbf{v_2}$.
+
+Consider vector $\hat{P_2}\hat{P_1} = P_2-P_1+t_2\mathbf{v_2}-t_1\mathbf{v_1}$
+
+We are looking for such $\hat{P_2}\hat{P_1}$ that is orthogonal to both $\mathbf{v_1}$ and $\mathbf{v_2}$.
+\[
+\begin{array}{lcl}
+   \hat{P_2}\hat{P_1}^T\mathbf{v_1} & =  P_2^T\mathbf{v_1}-P_1^T\mathbf{v_1} + t_2\mathbf{v_2}^T\mathbf{v_1}-t_1\mathbf{v_1}^T\mathbf{v_1} = & 0 \\
+   \hat{P_2}\hat{P_1}^T\mathbf{v_2} & = P_2^T\mathbf{v_2}-P_1^T\mathbf{v_2} + t_2\mathbf{v_2}^T\mathbf{v_2}-t_1\mathbf{v_1}^T\mathbf{v_2} = & 0
+\end{array}
+\]
+
+In matrix notation:
+\[
+\begin{bmatrix}
+-\mathbf{v_1}^T\mathbf{v_1} & \mathbf{v_2}^T\mathbf{v_1} \\
+-\mathbf{v_1}^T\mathbf{v_2} & \mathbf{v_2}^T\mathbf{v_2} \\
+\end{bmatrix}
+\begin{bmatrix}
+t_1 \\ t_2 
+\end{bmatrix}=
+\begin{bmatrix}
+P_2^T\mathbf{v_1}-P_1^T\mathbf{v_1} \\ P_2^T\mathbf{v_2}-P_1^T\mathbf{v_2} 
+\end{bmatrix}
+\]
+
 \paragraph{Algorithm 1 (initial estimate)}
 \begin{enumerate}
 \item Estimate $T_t=[R_t,q_t]$ using the algorithm in ~\ref{sec:mono_odo}
 \item Estimate $T'_t=[R'_t,q'_t]$ the same way
-\item Let $c_1,c_2$ be the real scales of $q_1,q_2$. We solve for
-  scale by enforcing $c_1q_1+c_2q_2 = t_0$ (we assume that all vectors
-  are given in the same frame, e.g., the $C_1$).  The same equations
-  may be written in matrix form $Qc=t_0$.  Where $Q = [q_1, q_2] \in
-  R^{3\times2}$ and $c=[c_1,c_2]^T$.  Since the system has 3
-  constraints and 2 variables we solve LS problem instead (using SVD)
-  $c^* = \underset{c}{argmin}\ \norm{Qc-t_0}$
+\item Use \ref{skew} to find the point closest to both lines of sight.
 \end{enumerate}
 
 \begin{figure}[!h]
@@ -224,6 +249,8 @@ algorithm outline:
   \label{fig:stereo_rig}
 \end{figure}
 
+\subsection{Reprojection error minimization}
+Parameter sensitivity issues, especially in (X,Y,Z)...
 
 \subsection{Essential Matrix refinement step}
 
@@ -262,11 +289,61 @@ $\mathbb{S}^3$ at $q$.  For each correspondence $(x_i,x_i')$, the
 derivative of the cost function in the direction $\tau_j$ is computed
 by finite differences.
 
- We define the following objective:
-\begin{align*}
-  F &= \sum_{i=1}^{N_1}{ r_i(E_1)^2 } + \sum_{j=1}^{N_2}{ r_j(E_2)^2 }
-  + \norm{Qc-t_0}^2 + \frac{\lambda}{w(\hat{r_t})}(Cr_t - \hat{Cr})^2
-\end{align*}
+\subsection{Non-linear refinement and use of cross-ratio}
+Now we use non-linear optimization to refine the results and
+incorporate cross-ratio information.
+
+\subsection{Option 1: constant directions $\mathbf{q_t}, \mathbf{q_{t+1}}$}
+
+Denote the direction of left camera motion relative to the previous
+left (right) camera by (unit vectors) $\mathbf{q_t},\mathbf{q_{t+1}}$
+($\mathbf{q'_t},\mathbf{q'_{t+1}}$) and its magnitude by $c_t,c_{t+1}$
+($c'_t,c'_{t+1}$) at times $t$ and $t+1$ respectively (see
+Fig. \ref{fig:cross_ratio_refine})
+
+\begin{figure}[!h]
+  \centering
+  \begin{tikzpicture}
+    \draw [help lines, dotted] (0,0) grid (8,6); \draw [dashed] (0,0)
+    -- (2,2); \draw [dashed] (3,0) -- (2,2); \draw [dashed] (2,2) --
+    (4,4); \draw [dashed] (4,4) -- (5,2); \draw [dashed,->] (3,0) --
+    (0.05,0); \draw [dashed,->] (5,2) -- (2.05,2); \draw [->] (0,0) --
+    (.5,.5); \draw [->] (2,2) -- (2.5,2.5); \node [left, scale=.7] at
+    (0,.5) {$[R_t,q_t]$}; \node [left, scale=.7] at (2.3,2.8)
+    {$[R_{t+1},q_{t+1}]$}; \draw [->] (3,0) -- (2.75,.5); \draw [->]
+    (5,2) -- (4.423,3.15); \node [right, scale=.7] at (3.25,.5)
+    {$[R'_t,q'_t]$}; \draw [red, fill] (0,0) circle [radius=0.05];
+    \draw [red, fill] (4,4) circle [radius=0.05]; \draw [blue, fill]
+    (3,0) circle [radius=0.05]; \node [below left] at (0,0)
+    {$C_{t-1}$}; \node [below right] at (3,0) {$C_{t-1}'$}; \node
+    [above left] at (2,2) {$C_t$}; \node [above left] at (4,4)
+    {$C_{t+1}$}; \node [above right] at (5,2) {$C_t'$}; \node [left,
+    scale=.7] at (6.8,2.8) {$[R'_{t+1},q'_{t+1}]$}; \draw [red, fill]
+    (2,2) circle [radius=0.05]; \draw [blue, fill] (5,2) circle
+    [radius=0.05]; \node [below, scale=.7] at (1.5,0) {$t_0$}; \node
+    [below, scale=.7] at (3.5,2) {$t_0$};
+  \end{tikzpicture}
+  \caption{Motion of a stereo rig}
+  \label{fig:cross_ratio_refine}
+\end{figure}
+
+We optimize $c_t,c_{t+1}$ and keep $\mathbf{q_t},\mathbf{q_{t+1}}$
+constant (basically, we move the points $C_t, C_{t+1}$ along the line
+they reside on) to minimize the related Sampson errors and cross ratio
+deviation). Note that Sampson errors for pairs of views $C_{t_1}$ and
+$C_t$; $C_t$ and $C_{t+1}$ remain constant since the Essential matrix
+is defined up to scale.  Sampson errors for pairs $C'_{t-1}$ and
+$C_t$; $C'_t$ and $C_{t+1}$ do change. 
+
+Consider the optimization problem (Note that since we deal with a
+rectified stereo pair the orientation of $C_t$ and $C'_t$ is the same):
+\begin{multline}
+  \underset{c_1,c_2}{\mathbf{argmin}} \sum_{j=1}^{N_2}{
+    r_j([t_0+c_1q_{t-1}]_\times R'_{t-1})^2 } + \sum_{j=1}^{N_2}{
+    r_j([t_0+c_2q_{t}]_\times R'_{t})^2 } +\\
+  \frac{\lambda}{w(\hat{r_t})}(\frac{q_t+q_{t-1}}{q_t} - \hat{Cr})^2
+\end{multline}
+
 
 \subsection{Implementation Details}
 TBD

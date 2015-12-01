@@ -7,12 +7,13 @@ steps = 3;
 baseline = 0.53;
 T0 = [eye(3) [baseline 0 0]'; 0 0 0 1];
 T0inv = inv(T0);
+
 K = [707.0912,   0,      601.8873;
        0,      707.0912  183.1104;
        0,        0,        1.0000];
 
 % preallocate
-npts = 10;
+npts = 1000;
 P0 = nan(3,4,steps);
 P1 = nan(3,4,steps);
 x_left  = nan(2,npts,steps);
@@ -33,7 +34,6 @@ R = eye(3); t = [0 0 1]'; delta = [R t; 0 0 0 1];
 % coordinates
 
 for i=1:steps
-    
     if i>1
         T(:,:,i) = delta*T(:,:,i-1);
     else
@@ -51,22 +51,20 @@ for i=1:steps
     x_right(:,:,i) = h2e(P1(:,:,i)*e2h(X));
     
     % add noise
-%     x_left(:,:,i)  = x_left(:,:,i)  + randn(size(x_left(:,:,i)));
-%     x_right(:,:,i) = x_right(:,:,i) + randn(size(x_right(:,:,i)));
+    x_left(:,:,i)  = x_left(:,:,i)  + randn(size(x_left(:,:,i)));
+    x_right(:,:,i) = x_right(:,:,i) + randn(size(x_right(:,:,i)));
 end
 
 % first 2 motions
 T1 = delta;
 T2 = delta;
 
-x1 = [e2h(x_left(:,:,2)); e2h(x_right(:,:,1))];
-x2 = [e2h(x_left(:,:,3)); e2h(x_right(:,:,2))];
+x1 = [K\e2h(x_left(:,:,2)); K\e2h(x_right(:,:,1))];
+x2 = [K\e2h(x_left(:,:,3)); K\e2h(x_right(:,:,2))];
 
-% x1 = x1 + randn(size(x1));
-% x2 = x2 + randn(size(x2));
-
-ratio = 2; sigma = 1;
+ratio = 2+.1*randn; sigma = 1;
 fun = @(c) objective1(T0(1:3,4), T1, T2, x1, x2, ratio, sigma, c(1), c(2));
 
 [c, fval] = fminsearch(fun, [1, 1]);
 end
+

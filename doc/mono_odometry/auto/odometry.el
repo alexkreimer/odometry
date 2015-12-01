@@ -12,7 +12,9 @@
      "eq:cr"
      "fig:cross_ratio"
      "algo"
-     "fig:stereo_rig")
+     "skew"
+     "fig:stereo_rig"
+     "fig:cross_ratio_refine")
     (TeX-run-style-hooks
      "cite"
      "tikz"

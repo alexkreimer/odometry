@@ -1,6 +1,6 @@
 % This function estimates the motion of a stereo rig between 2 pairs of stereo frames
 
-function [a_est, pout] = estimate_stereo_motion1(pin)
+function [a_est, pout] = estimate_stereo_motion_new(pin)
 % param.c1p feature seen in the left camera, time {i-1}
 % param.c1  same features, same camera, time {i}
 %
@@ -23,8 +23,9 @@ pout.est1.E = E1;
 pout.est1.inliers = inliers1;
 pout.est1.x1 = pin.c1p;
 pout.est1.x2 = pin.c1;
+pout.est1.c1_opt = nan;
 pout.est1.name = 'previous left vs. current left';
-pout.xr = 0;
+pout.est1.T_opt= nan;
 
 % compute cross-ratios
 e = null(F1);
@@ -52,7 +53,7 @@ if n>0
 
     % use both x corrdinate and y corrdinate ratios, same same
     data = [xr;yr];
-    pd = fitdist(data,'Normal');
+    pd = fitdist(data, 'Normal');
     
     % plot the distribution
     x_values = min(data):.1:max(data);
@@ -60,9 +61,9 @@ if n>0
     plot(x_values,y,'LineWidth',2)
 
     % save the result for output
-    pout.xr = pd.mu;
+    pout.ratio = pd.mu;
+    pout.sigma = pd.sigma;
 end
-
 
 % Estimate motion between initial position of the right camera and current
 % position of the left camera
@@ -109,8 +110,9 @@ t2 = t1 - pin.t0;
 T1 = [R1 t1; 0 0 0 1];
 T2 = [R2 t2; 0 0 0 1];
 
-pout.est1.T_final = T1;
-pout.est2.T_final = T2;
+pout.est1.T_final = inv(T1);
+pout.est2.T_final = inv(T2);
+pout.est1.c = c;
 
 a_est = mat2tr(T1);
 

@@ -18,10 +18,10 @@ R2 = T2(1:3,1:3);
 t1 = -t0+c1*q1;
 t2 = -t0+c2*q2;
 
-v1 = sampson_err(R1,t1, x1(1:3,:), x1(4:6,:));
+v1 = sampson_err(R1,t1, x1(4:6,:), x1(1:3,:));
 v2 = sampson_err(R2,t2, x2(1:3,:), x2(4:6,:));
 
-delta = (ratio-(1+c1/c2));
+delta = (abs(ratio)-(1+abs(c1/c2)));
 
 val = v1'*v1/length(v1) + v2'*v2/length(v2) + delta*delta/(sigma*sigma);
 end

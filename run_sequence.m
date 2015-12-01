@@ -1,15 +1,17 @@
-function estimate_motion1()
+function run_sequence(sequence, num_frames)
 
 close all
 dbstop if error;
 
-KITTI_HOME = '/home/kreimer/KITTI/dataset';
-%KITTI_HOME = '/media/kreimer/my_drive/record_20150720/dataset';
+KITTI_HOME = '/media/kreimer/my_drive/KITTI/dataset';
 DBG_DIR = fullfile('/home/kreimer/tmp', 'debug');
 
-sequence = '04';
 image_dir  = fullfile(KITTI_HOME, 'sequences', sequence);
 poses_file = fullfile(KITTI_HOME, 'poses',[sequence, '.txt']);
+
+if nargin<2
+    num_frames = 10;
+end
 
 % setup camera parameters (KITTI)
 [P0, P1] = kitti_read_calib(image_dir);
@@ -17,14 +19,14 @@ poses_gt = kitti_read_poses(poses_file);
 param = kitti_params(P0, P1);
 
 gt = process_gt(poses_gt);
-info = struct('i1',[],'i2',[],'c1',[],'c2',[],'f1',[],'f2',[],'m12',[],'m11p',[],'m22p',[],'m12p',[],'m21p',[],'mc',[],'mt',[]);
+tracks = struct('i1',[],'i2',[],'c1',[],'c2',[],'f1',[],'f2',[],'m12',[],'m11p',[],'m22p',[],'m12p',[],'m21p',[],'mc',[],'mt',[]);
 % load features
-num_frames = 270;
 for i=1:num_frames
-    load(['tracks/tracks_', sequence, '_', int2str(i), '.mat']);
-    info(i) = val;
+    load(['/home/kreimer/prj/odometry/tracks/', sequence, '/frame_', num2str(i), '.mat']);
+    tracks(i) = eval('info');
 end
 
+info = tracks;
 poses1 = nan(4, 4, num_frames);
 poses1(:,:,1) = inv([eye(3) zeros(3,1); 0 0 0 1]);
 poses2 = poses1;
@@ -39,7 +41,7 @@ MY(1, 1:num_tracks) = info(1).c1(2, info(2).mt(2,:));
 wm = num_tracks+1;
 for i = 2:num_frames
     num_matches = size(info(i).mt,2);
-
+    
     for j = 1:num_matches
         cur_ind = info(i).mt(1,j);
         prv_ind = info(i).mt(2,j);
@@ -54,14 +56,11 @@ for i = 2:num_frames
             MX(i,  wm) = info(i).c1(1, cur_ind);
             MY(i,  wm) = info(i).c1(2, cur_ind);
             MX(i-1,wm) = info(i-1).c1(1, prv_ind);
-            MY(i-1,wm) = info(i-1).c1(2, prv_ind);            
+            MY(i-1,wm) = info(i-1).c1(2, prv_ind);
             wm = wm+1;
         end
     end
 end
-
-xr = zeros(num_frames,2);
-transl = nan(num_frames,1);
 
 for i = 2:num_frames
     fprintf('processing frame %d\n', i);
@@ -119,7 +118,7 @@ for i = 2:num_frames
         params.tracksy = [];
     end
     
-    [a_est1, pout] = estimate_stereo_motion1(params);
+    [a_est1, pout] = estimate_stereo_motion_new(params);
     
     poses1(:,:,i) = poses1(:,:,i-1)*tr2mat(a_est1);
     
@@ -135,13 +134,28 @@ for i = 2:num_frames
     E_final = skew(T_final(1:3,4))*T_final(1:3,1:3);
     F_final = inv(params.K')*E_final*inv(params.K);
     
-%     transl(i) = norm(a_est1(4:6));
-%     if i>3
-%         xr(i,1) = pout.xr;
-%         xr(i,2) = 1+transl(i-1)/transl(i);
-%         
-%         val = objective1(params.t0, est1(i).T, est1(i-1).T, [est2(i).x1; est2(i).x2], [est2(i-1).x1; est2(i-1).x2]);
-%     end
+    % global optimization
+    if i>3
+        K = params.K;
+        x1 = [K\e2h(est2(i-1).x1); K\e2h(est2(i-1).x2)];
+        x2 = [K\e2h(est2(i).x1); K\e2h(est2(i).x2)];
+
+        fun = @(c) objective1([param.base 0 0]', inv(est1(i-1).T_final),...
+            inv(est1(i).T_final), x1, x2, pout.ratio, pout.sigma, c(1), c(2));
+        
+        [c, fval] = fminsearch(fun, [1, 1]);
+        
+        % update the results
+        est1(i).c1_opt = c(2);
+        est1(i-1).c1_opt = c(1);
+        
+        for j=[i-1 i]
+            est1(j).T_opt = inv(est1(j).T_final);
+            est1(j).T_opt(1:3,4) = est1(j).T_opt(1:3,4)/norm(est1(j).T_opt(1:3,4));
+            est1(j).T_opt(1:3,4) = est1(j).c1_opt*est1(j).T_opt(1:3,4);
+            est1(j).T_opt = inv(est1(j).T_opt);
+        end
+    end
     
     pin = struct(...
         'x1', pout.est1.x1,...
@@ -189,7 +203,7 @@ for i = 2:num_frames
     T_rec = [pout.est2.T; 0 0 0 1];
     E_rec = skew(T_rec(1:3,4))*T_rec(1:3,1:3);
     F_rec = inv(params.K')*E_rec*inv(params.K);
-   
+    
     T_gt(1,4) = T_gt(1,4) + param.base;
     t_gt = T_gt(1:3, 4);
     R_gt = T_gt(1:3, 1:3);
@@ -205,7 +219,7 @@ for i = 2:num_frames
     pin.T = {pout.est2.T, T_rec, T_gt, T_ss};
     pin.name = {'epipolar estimation 2', 'after reconstruction', 'gt2', 'ss2'};
     
-%     test_est_F(pin);
+    %     test_est_F(pin);
 end
 
 savePoses([sequence, '_f.txt'], poses1);

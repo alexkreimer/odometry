@@ -1,10 +1,31 @@
 \begin{thebibliography}{1}
 
+\bibitem{basri1999visual}
+Ronen Basri, Ehud Rivlin, and Ilan Shimshoni.
+\newblock Visual homing: Surfing on the epipoles.
+\newblock {\em International Journal of Computer Vision}, 33(2):117--137, 1999.
+
+\bibitem{botterillrefining}
+Tom Botterill, Steven Mills, and Richard Green.
+\newblock Refining essential matrix estimates from ransac.
+
+\bibitem{dudek1996vision}
+Gregory Dudek and Chi Zhang.
+\newblock Vision-based robot localization without explicit object models.
+\newblock In {\em Robotics and Automation, 1996. Proceedings., 1996 IEEE
+  International Conference on}, volume~1, pages 76--82. IEEE, 1996.
+
 \bibitem{hornegger1999representation}
 Joachim Hornegger and Carlo Tomasi.
 \newblock Representation issues in the ml estimation of camera motion.
 \newblock In {\em Computer Vision, 1999. The Proceedings of the Seventh IEEE
   International Conference on}, volume~1, pages 640--647. IEEE, 1999.
+
+\bibitem{marquardt1963algorithm}
+Donald~W Marquardt.
+\newblock An algorithm for least-squares estimation of nonlinear parameters.
+\newblock {\em Journal of the Society for Industrial \& Applied Mathematics},
+  11(2):431--441, 1963.
 
 \bibitem{schmidt2001using}
 Jochen Schmidt and Heinrich Niemann.

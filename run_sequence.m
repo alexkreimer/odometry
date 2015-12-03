@@ -3,11 +3,13 @@ function run_sequence(sequence, num_frames)
 close all
 dbstop if error;
 
-KITTI_HOME = '/media/kreimer/my_drive/KITTI/dataset';
+DATA_ROOT = '/media/kreimer/my_drive/KITTI/';
+KITTI_HOME = [DATA_ROOT, 'dataset'];
+RESULT_DIR = [DATA_ROOT, 'results/'];
 DBG_DIR = fullfile('/home/kreimer/tmp', 'debug');
 
 image_dir  = fullfile(KITTI_HOME, 'sequences', sequence);
-poses_file = fullfile(KITTI_HOME, 'poses',[sequence, '.txt']);
+poses_file = fullfile(KITTI_HOME, 'poses', [sequence, '.txt']);
 
 if nargin<2
     num_frames = 10;
@@ -19,10 +21,12 @@ poses_gt = kitti_read_poses(poses_file);
 param = kitti_params(P0, P1);
 
 gt = process_gt(poses_gt);
-tracks = struct('i1',[],'i2',[],'c1',[],'c2',[],'f1',[],'f2',[],'m12',[],'m11p',[],'m22p',[],'m12p',[],'m21p',[],'mc',[],'mt',[]);
+tracks = struct('i1',[],'i2',[],'c1',[],'c2',[],'f1',[],'f2',[],'m12',[],...
+    'm11p',[],'m22p',[],'m12p',[],'m21p',[],'mc',[],'mt',[]);
+
 % load features
 for i=1:num_frames
-    load(['/home/kreimer/prj/odometry/tracks/', sequence, '/frame_', num2str(i), '.mat']);
+    load([DATA_ROOT, 'tracks/', sequence, '/frame_', num2str(i), '.mat']);
     tracks(i) = eval('info');
 end
 
@@ -31,36 +35,7 @@ poses1 = nan(4, 4, num_frames);
 poses1(:,:,1) = inv([eye(3) zeros(3,1); 0 0 0 1]);
 poses2 = poses1;
 
-num_tracks = size(info(2).mt,2);
-M = zeros(num_frames,1000);
-M(1, 1:num_tracks) = info(2).mt(2,:);
-
-MX(1, 1:num_tracks) = info(1).c1(1, info(2).mt(2,:));
-MY(1, 1:num_tracks) = info(1).c1(2, info(2).mt(2,:));
-
-wm = num_tracks+1;
-for i = 2:num_frames
-    num_matches = size(info(i).mt,2);
-    
-    for j = 1:num_matches
-        cur_ind = info(i).mt(1,j);
-        prv_ind = info(i).mt(2,j);
-        track_ind = find(M(i-1,:)==prv_ind);
-        if ~isempty(track_ind)
-            M(i, track_ind)  = cur_ind;
-            MX(i, track_ind) = info(i).c1(1, cur_ind);
-            MY(i, track_ind) = info(i).c1(2, cur_ind);
-        else
-            M(i,   wm) = cur_ind;
-            M(i-1, wm) = prv_ind;
-            MX(i,  wm) = info(i).c1(1, cur_ind);
-            MY(i,  wm) = info(i).c1(2, cur_ind);
-            MX(i-1,wm) = info(i-1).c1(1, prv_ind);
-            MY(i-1,wm) = info(i-1).c1(2, prv_ind);
-            wm = wm+1;
-        end
-    end
-end
+[M, MX, MY] = collect_tracklets(info, num_frames);
 
 for i = 2:num_frames
     fprintf('processing frame %d\n', i);
@@ -155,6 +130,8 @@ for i = 2:num_frames
             est1(j).T_opt(1:3,4) = est1(j).c1_opt*est1(j).T_opt(1:3,4);
             est1(j).T_opt = inv(est1(j).T_opt);
         end
+    else
+        est1(i).T_opt = est1(i).T_final;
     end
     
     pin = struct(...
@@ -183,7 +160,7 @@ for i = 2:num_frames
     
     pin.name = {'final T', 'epipolar estimation', 'after reconstruction', 'gt', 'ss'};
     
-    test_est_F(pin);
+    %test_est_F(pin);
     
     pin = struct(...
         'x1', pout.est2.x1,...
@@ -222,8 +199,14 @@ for i = 2:num_frames
     %     test_est_F(pin);
 end
 
-savePoses([sequence, '_f.txt'], poses1);
-savePoses([sequence, '_3d.txt'], poses2);
+% save results
+for i=2:length(est1)
+    poses1(:,:,i) = poses1(:,:,i-1)/est1(i).T_opt;
+end
+
+savePoses([RESULT_DIR, 'new/data/', sequence, '.txt'], poses1);
+savePoses([RESULT_DIR, 'stereoscan/data', sequence, '.txt'], poses2);
+
 end
 
 function plot_circles(px, x, i1, pi1, i2, pi2)

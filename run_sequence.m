@@ -35,8 +35,7 @@ poses1 = nan(4, 4, num_frames);
 poses1(:,:,1) = inv([eye(3) zeros(3,1); 0 0 0 1]);
 poses2 = poses1;
 
-[M, MX, MY] = collect_tracklets(info, num_frames);
-
+M = tracks_collect(info, 1);
 for i = 2:num_frames
     fprintf('processing frame %d\n', i);
     %[i1, i2] = read_kitti_images(image_dir, i);
@@ -83,14 +82,14 @@ for i = 2:num_frames
         'c2p', c2p,...
         't0', [param.base,0,0]',...   % stereo baseline
         'K', param.K);
+
+    M = tracks_collect(info, i, M);
+
+    params.tracksx = [];
+    params.tracksy = [];
     
     if i>2
-        tracks = M(i,:) & M(i-1,:) & M(i-2,:);
-        params.tracksx = MX(i-2:i,tracks);
-        params.tracksy = MY(i-2:i,tracks);
-    else
-        params.tracksx = [];
-        params.tracksy = [];
+        [params.tracksx, params.tracksy] = tracks_coords(info, M, 3, i);
     end
     
     [a_est1, pout] = estimate_stereo_motion_new(params);

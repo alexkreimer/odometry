@@ -142,6 +142,7 @@ end
 end
 
 function match = prune_triangle(m12pp, m11p, m12p)
+% the order of values in mt : [cur_left; prv_left; prv_right]
 k = 1;
 for i = 1:size(m12pp, 2)
     ind1 = m12pp(1, i);

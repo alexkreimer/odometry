@@ -58,7 +58,7 @@ if n>0
     % plot the distribution
     x_values = min(data):.1:max(data);
     y = pdf(pd, x_values);
-    plot(x_values,y,'LineWidth',2)
+%     plot(x_values,y,'LineWidth',2)
 
     % save the result for output
     pout.ratio = pd.mu;
@@ -195,6 +195,8 @@ E_est = K'*F_est*K;
 % Decompose essential
 T_est = decompose_essential(E_est, K, [x1;x2]);
 
+T_est = [T_est; 0 0 0 1];
+
 % refine motion params
 x1 = x1(:,inliers);
 x2 = x2(:,inliers);
@@ -205,9 +207,14 @@ for i = 1:N
     p1(:,i) = inv(K)*[x1(:,i); 1];
     p2(:,i) = inv(K)*[x2(:,i); 1];
 end
-[R, t] = essential_lm(T_est(1:3,1:3), T_est(1:3,4), p1, p2);
-T_est = [R t; 0 0 0 1];
-E_est = skew(t)*R;
+[R, t, exitflag] = essential_lm(T_est(1:3,1:3), T_est(1:3,4), p1, p2);
+if exitflag
+    T_est = [R t; 0 0 0 1];
+    E_est = skew(t)*R;
+else
+    disp('LM did not converge for essential refinement, disregard the result');
+end
+
 F_est = inv(K')*E_est*inv(K);
 end
 

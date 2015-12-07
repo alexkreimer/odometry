@@ -17,13 +17,13 @@ for j = track_len:max_len
 end
 
 n = size(all, 2);
-x = nan(n, 1);
-y = nan(n, 1);
+x = nan(track_len, n);
+y = nan(track_len, n);
 for i = 1:n
     for j = 1:track_len
         f = all(j, i);
         c = info(cur_frame-track_len+j).c1(:,f);
-        x(i) = c(1);
-        y(i) = c(2);
+        x(j,i) = c(1);
+        y(j,i) = c(2);
     end
 end

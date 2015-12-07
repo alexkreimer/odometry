@@ -1,5 +1,6 @@
-function [R,t] = essential_lm(R, t, x1, x2)
+function [R,t, exitflag] = essential_lm(R, t, x1, x2)
 
+exitflag      = 0;
 lambda_0      = 1e-2;               % initial damping parameter value
 lambda        = lambda_0;			% Marquardt: init'l lambda
 epsilon_1     = 1e-6;
@@ -67,22 +68,26 @@ while ~stop && iterations < max_iter
     end
     
     if max(abs(delta_p./p)) < epsilon_2  &&  iterations > 2
-        fprintf(' **** Convergence in Parameters **** \n')
-        fprintf(' **** epsilon_2 = %e\n', epsilon_2);
+        %fprintf(' **** Convergence in Parameters **** \n')
+        %fprintf(' **** epsilon_2 = %e\n', epsilon_2);
+        exitflag = 1;
         stop = 1;
     end
     if X2/Npnt < epsilon_3  &&  iterations > 2
-        fprintf(' **** Convergence in Chi-square  **** \n')
-        fprintf(' **** epsilon_3 = %e\n', epsilon_3);
+        %fprintf(' **** Convergence in Chi-square  **** \n')
+        %fprintf(' **** epsilon_3 = %e\n', epsilon_3);
+        exitflag = 1;
         stop = 1;
     end
     if max(abs(beta)) < epsilon_1  &&  iterations > 2
-        fprintf(' **** Convergence in r.h.s. ("beta")  **** \n')
-        fprintf(' **** epsilon_1 = %e\n', epsilon_1);
+        %fprintf(' **** Convergence in r.h.s. ("beta")  **** \n')
+        %fprintf(' **** epsilon_1 = %e\n', epsilon_1);
+        exitflag = 1;
         stop = 1;
     end
     if iterations == max_iter
-        disp(' !! Maximum Number of Iterations Reached Without Convergence !!')
+        %disp(' !! Maximum Number of Iterations Reached Without Convergence !!')
+        exitflag = 0;
         stop = 1;
     end
     
@@ -103,44 +108,6 @@ hZ = param2quaternion(v, h0);
 
 % compute sampson error value
 val = sampson(hZ, t, x1, x2);
-end
-
-function hZ = param2quaternion(v, h0)
-
-B = ortho_basis(h0);
-
-% convert parameter vector to 4-vector and normalize it
-v4  = B*v;
-
-if norm(v4) == 0
-    hZ = h0;
-else
-    v4N = v4/norm(v4);
-    
-    % resulting quaternion
-    theta = norm(v4);
-    hZ = sin(theta)*v4N + cos(theta)*h0;
-end
-
-end
-
-function B = ortho_basis(h)
-
-if h(1) ~= 0
-    b0 = [1/h(1); 0; 0; 0];
-    b1 = [-h(2)/h(1); 1; 0; 0];
-    b2 = [-h(3)/h(1); 0; 1; 0];
-    b3 = [-h(4)/h(1); 0; 0; 1];
-    
-    % non orthogonal basis
-    B = [b1 b2 b3];
-    
-    [U,~,~] = svd(B);
-    
-    % orthogonal basis that spans the same subspace
-    B = U(:,1:3);
-end
-
 end
 
 function dydp = lm_dydp(func,p,y)

@@ -1,4 +1,4 @@
-function [p,X2,sigma_p,sigma_y,corr,R_sq,cvg_hst] = lm(func,p,t,y_dat,weight,dp,p_min,p_max,c)
+function [p,exitflag,X2,sigma_p,sigma_y,corr,R_sq,cvg_hst] = lm(func,p,t,y_dat,weight,dp,p_min,p_max,c)
 
 % [p,X2,sigma_p,sigma_y,corr,R_sq,cvg_hst] = lm(func,p,t,y_dat,weight,dp,p_min,p_max,c)
 %
@@ -42,7 +42,9 @@ function [p,X2,sigma_p,sigma_y,corr,R_sq,cvg_hst] = lm(func,p,t,y_dat,weight,dp,
 %   http://www2.imm.dtu.dk/pubdb/views/edoc_download.php/3215/pdf/imm3215.pdf
 
  global func_calls
-
+ 
+ exitflag = 0;
+ 
  tensor_parameter = 0;
 
  func_calls = 0;			% running count of function evaluations
@@ -223,25 +225,28 @@ function [p,X2,sigma_p,sigma_y,corr,R_sq,cvg_hst] = lm(func,p,t,y_dat,weight,dp,
 
 
    if ( max(abs(delta_p./p)) < epsilon_2  &  iteration > 2 ) 
-	fprintf(' **** Convergence in Parameters **** \n')
-	fprintf(' **** epsilon_2 = %e\n', epsilon_2);
+	%fprintf(' **** Convergence in Parameters **** \n')
+	%fprintf(' **** epsilon_2 = %e\n', epsilon_2);
 	stop = 1;
+    exitflag = 1;
    end
    if ( X2/Npnt < epsilon_3  &  iteration > 2 ) 
-	fprintf(' **** Convergence in Chi-square  **** \n')
-	fprintf(' **** epsilon_3 = %e\n', epsilon_3);
+	%fprintf(' **** Convergence in Chi-square  **** \n')
+	%fprintf(' **** epsilon_3 = %e\n', epsilon_3);
+    exitflag = 1;
 	stop = 1;
    end
    if ( max(abs(beta)) < epsilon_1  &  iteration > 2 ) 
-	fprintf(' **** Convergence in r.h.s. ("beta")  **** \n')
-	fprintf(' **** epsilon_1 = %e\n', epsilon_1);
+	%fprintf(' **** Convergence in r.h.s. ("beta")  **** \n')
+	%fprintf(' **** epsilon_1 = %e\n', epsilon_1);
+    exitflag = 1;
 	stop = 1;
    end
    if ( iteration == MaxIter )
-	disp(' !! Maximum Number of Iterations Reached Without Convergence !!')
-        stop = 1;
+	disp(' !! Maximum Number of Iterations Reached Without Convergence !!');
+    exitflag = 0;
+    stop = 1;
    end
-
  end					% --- End of Main Loop
 
  % --- convergence achieved, find covariance and confidence intervals

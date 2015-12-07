@@ -3,10 +3,10 @@ function run_sequence(sequence, num_frames)
 close all
 dbstop if error;
 
-DATA_ROOT = '/media/kreimer/my_drive/KITTI/';
-KITTI_HOME = [DATA_ROOT, 'dataset'];
-RESULT_DIR = [DATA_ROOT, 'results/'];
-DBG_DIR = fullfile('/home/kreimer/tmp', 'debug');
+DATA_ROOT  = '/media/kreimer/my_drive/KITTI/';
+KITTI_HOME = fullfile(DATA_ROOT, 'dataset');
+RESULT_DIR = fullfile(DATA_ROOT, 'results');
+DBG_DIR    = fullfile(DATA_ROOT, 'debug');
 
 image_dir  = fullfile(KITTI_HOME, 'sequences', sequence);
 poses_file = fullfile(KITTI_HOME, 'poses', [sequence, '.txt']);
@@ -21,8 +21,19 @@ poses_gt = kitti_read_poses(poses_file);
 param = kitti_params(P0, P1);
 
 gt = process_gt(poses_gt);
-tracks = struct('i1',[],'i2',[],'c1',[],'c2',[],'f1',[],'f2',[],'m12',[],...
-    'm11p',[],'m22p',[],'m12p',[],'m21p',[],'mc',[],'mt',[]);
+tracks = struct('i1',[],...
+                'i2',[],...
+                'c1',[],...
+                'c2',[],...
+                'f1',[],...
+                'f2',[],...
+                'm12',[],...
+                'm11p',[],...
+                'm22p',[],...
+                'm12p',[],...
+                'm21p',[],...
+                'mc',[],...
+                'mt',[]);
 
 % load features
 for i=1:num_frames
@@ -36,65 +47,71 @@ poses1(:,:,1) = inv([eye(3) zeros(3,1); 0 0 0 1]);
 poses2 = poses1;
 
 M = tracks_collect(info, 1);
+stats = struct('support_size',[],'ratio',[],'sigma', []);
+
+results = {'ss', 'no_opt'};
+
 for i = 2:num_frames
     fprintf('processing frame %d\n', i);
+    stats(i).support_size = size(info(i).mt,2);
+    
     %[i1, i2] = read_kitti_images(image_dir, i);
+    
     % collect features for the estimation
-    cur = i; prv = i-1;
-    c1 = info(cur).c1(:, info(cur).mt(1, :)); % current left
-    c1p= info(prv).c1(:, info(cur).mt(2, :)); % previous left
-    c2p= info(prv).c2(:, info(cur).mt(3, :)); % previous right
-    
-    mt = info(cur).mt;
-    m12 = info(cur).m12;
-    
-    mt(4, :) = nan;
-    for j = 1:length(mt)
-        ind = find(m12(1, :) == mt(1, j));
-        if ~isempty(ind)
-            mt(4, j) = m12(2, ind);
-        end
-    end
-    
-    valid = ~isnan(mt(4, :));
-    c1_ss = info(cur).c1(:, mt(1, valid));
-    c2_ss = info(cur).c2(:, mt(4, valid));
+    cur = i;
+    prv = i-1;
+    c1  = info(cur).c1(:, info(cur).mt(1, :)); % current left
+    c1p = info(prv).c1(:, info(cur).mt(2, :)); % previous left
+    c2p = info(prv).c2(:, info(cur).mt(3, :)); % previous right
+
+    % our algorithm only uses 1.5 stereo pair, while stereoscan needs all 4
+    % images.  This functions completes the match into the current right
+    % image
+    mt  = info(cur).mt;
+    m12 = info(cur).m12;    
+    mt = complete_circle(mt, m12);
+
+    % collect feature points for stereo-scan
+    valid  = ~isnan(mt(4, :));
+    c1_ss  = info(cur).c1(:, mt(1, valid));
+    c2_ss  = info(cur).c2(:, mt(4, valid));
     c1p_ss = info(prv).c1(:, mt(2, valid)); % previous left
     c2p_ss = info(prv).c2(:, mt(3, valid)); % previous right
-    
-    num_pts = length(c1_ss);
-    X = nan(4, num_pts);
-    for j = 1:num_pts
-        X(:, j) = vgg_X_from_xP_nonlin([c1p_ss(:, j) c2p_ss(:,j)], {param.P1, param.P2});
-    end
-    X = h2e(X);
-    
+    % produce 3d
+    X = triangulate_points(c1p_ss, c2p_ss, nnz(valid), param);
+    % optimization
     [a_ss, ~, ~, ~, ~] = ransac_minimize_reproj(X, [c1_ss; c2_ss], param);
+    % save the results
     T_ss = tr2mat(a_ss);
     E_ss = skew(T_ss(1:3,4))*T_ss(1:3,1:3);
     F_ss = inv(param.K')*E_ss*inv(param.K);
-    
-    poses2(:,:,i) = poses2(:,:,i-1)*inv(tr2mat(a_ss));
+    stats(i).ss.T = inv(tr2mat(a_ss));
     
     % collect params
-    params = struct('c1', c1,...
-        'c1p', c1p,...
-        'c2p', c2p,...
-        't0', [param.base,0,0]',...   % stereo baseline
-        'K', param.K);
+    params = struct('c1',  c1, ...
+                    'c1p', c1p,...
+                    'c2p', c2p,...
+                    'tracksx', [],...
+                    'tracksy', [],...
+                    't0', [param.base,0,0]',...   % stereo baseline
+                    'K', param.K);
 
+    % M is a cell-array; M{j} holds all tracklets of length j, found in
+    % frame i. A = M{j} is an j\times N array (N is the number of tracklets)
+    % Each column of A contains indices of features that comprise the
+    % tracklet. A(k,l) is the index of the feature in frame i-j+k
     M = tracks_collect(info, i, M);
 
-    params.tracksx = [];
-    params.tracksy = [];
-    
     if i>2
+        % converts feature indices into coordinates
         [params.tracksx, params.tracksy] = tracks_coords(info, M, 3, i);
+%         figure;
+%         imshow(i1,[]);
+%         hold on;
+%         plot(params.tracksx, params.tracksy);
     end
     
-    [a_est1, pout] = estimate_stereo_motion_new(params);
-    
-    poses1(:,:,i) = poses1(:,:,i-1)*tr2mat(a_est1);
+    [~, pout] = estimate_stereo_motion_new(params);
     
     est1(i) = pout.est1;
     est2(i) = pout.est2;
@@ -110,29 +127,89 @@ for i = 2:num_frames
     
     % global optimization
     if i>3
+        stats(i).ratio = pout.ratio;
+        stats(i).sigma = pout.sigma;    
+        
         K = params.K;
         x1 = [K\e2h(est2(i-1).x1); K\e2h(est2(i-1).x2)];
         x2 = [K\e2h(est2(i).x1); K\e2h(est2(i).x2)];
+        x3 = [K\e2h(est1(i-1).x1); K\e2h(est1(i-1).x2)];
+        x4 = [K\e2h(est1(i).x1); K\e2h(est1(i).x2)];
+        
+        % w is the weight of the cross ratio term in the optimization
+        % objective
+        w = linspace(.1, 5, 3);
+        w = 1;
+        for j = 1:length(w)
+            t0  = [param.base 0 0]';
+            x   = {x1, x2};
+            T   = {inv(est1(i-1).T_final), inv(est1(i).T_final)};
+            
+            fun = @(c) objective1(w(j), t0, T, x, pout.ratio, pout.sigma, c);
+            [c, ~, exitflag] = fminsearch(fun, [1, 1]);
 
-        fun = @(c) objective1([param.base 0 0]', inv(est1(i-1).T_final),...
-            inv(est1(i).T_final), x1, x2, pout.ratio, pout.sigma, c(1), c(2));
-        
-        [c, fval] = fminsearch(fun, [1, 1]);
-        
-        % update the results
-        est1(i).c1_opt = c(2);
-        est1(i-1).c1_opt = c(1);
-        
-        for j=[i-1 i]
-            est1(j).T_opt = inv(est1(j).T_final);
-            est1(j).T_opt(1:3,4) = est1(j).T_opt(1:3,4)/norm(est1(j).T_opt(1:3,4));
-            est1(j).T_opt(1:3,4) = est1(j).c1_opt*est1(j).T_opt(1:3,4);
-            est1(j).T_opt = inv(est1(j).T_opt);
+            T = inv(est1(i).T_final);
+            t = T(1:3, 4);
+            t = c(1)*t/norm(t);
+            T(1:3, 4) = t;
+            field = ['w1_',num2str(j)];
+            if ~isfield(stats, field)
+                stats(i).(field) = struct('c',[],...
+                                       'c_prv',[],...
+                                       'w',[],...
+                                       'exitflag',[],...
+                                       'T',[]);
+                results{end+1} = field;
+            end
+            
+            % update the results
+            stats(i).(field).c = c;
+            stats(i).(field).w = w(j);
+            stats(i).(field).exitflag = exitflag;
+            stats(i).(field).T = inv(T);
+            
+            % operating points
+            T  = {inv(est1(i-1).T_final), inv(est1(i).T_final)};            
+            T1 = T{1}; R1 = T1(1:3,1:3); t1 = T1(1:3,4)';
+            T2 = T{2}; R2 = T2(1:3,1:3); t2 = T2(1:3,4)';
+            c0 = [0 0 0 t1 0 0 0 t2];
+            h0(1,:) = quaternion.rotationmatrix(R1).e;
+            h0(2,:) = quaternion.rotationmatrix(R2).e;
+            x   = {x1, x2, x3, x4};
+            fun = @(c) objective2(w(j), t0, x, pout.ratio, pout.sigma, h0, c);
+            [c, ~, exitflag] = fminsearch(fun, c0);
+
+            R = quaternion(param2quaternion(c(7:9)', h0(2,:)')).RotationMatrix;
+            t = c(10:12)';
+            T = [R t; 0 0 0 1];
+            
+            field = ['w2_',num2str(j)];
+            if ~isfield(stats, field)
+                stats(i).(field) = struct('c',[],...
+                                       'c_prv',[],...
+                                       'w',[],...
+                                       'exitflag',[],...
+                                       'T',[]);
+                results{end+1} = field;
+            end
+            
+            % update the results
+            stats(i).(field).c = c;
+            stats(i).(field).w = w(j);
+            stats(i).(field).exitflag = exitflag;
+            stats(i).(field).T = inv(T);
+            
         end
-    else
-        est1(i).T_opt = est1(i).T_final;
     end
     
+    % no optimisation result
+    field = 'no_opt';
+    if ~isfield(stats, field)
+        stats(i).(field) = struct('T',[]);
+    end
+    stats(i).(field).T = est1(i).T_final;
+    
+    % DEBUG
     pin = struct(...
         'x1', pout.est1.x1,...
         'x2', pout.est1.x2,...
@@ -199,12 +276,29 @@ for i = 2:num_frames
 end
 
 % save results
-for i=2:length(est1)
-    poses1(:,:,i) = poses1(:,:,i-1)/est1(i).T_opt;
+for i=1:length(results)
+    field = results{i};
+    poses = nan(4, 4, num_frames);
+    poses(:,:,1) = inv([eye(3) zeros(3,1); 0 0 0 1]);
+    for j=2:num_frames
+        if isempty(stats(j).(field))
+            T = stats(j).no_opt.T;
+        else
+            T = stats(j).(field).T;
+        end
+        
+        poses(:, :, j) = poses(:,:,j-1)/T;
+    end
+    
+    dir = fullfile(RESULT_DIR, field);
+    if exist(dir,'dir')
+        command = ['rm -fr ', dir];
+        system(command);
+    end
+    command = ['mkdir -p ', fullfile(dir, 'data')];
+    system(command);
+    savePoses(fullfile(dir, 'data', [sequence, '.txt']), poses);
 end
-
-savePoses([RESULT_DIR, 'new/data/', sequence, '.txt'], poses1);
-savePoses([RESULT_DIR, 'stereoscan/data', sequence, '.txt'], poses2);
 
 end
 
@@ -233,3 +327,23 @@ F = inv(K')*E*inv(K);
 
 dist_sampson(F,x1,x2);
 end
+
+function mt = complete_circle(mt, m12)
+
+mt(4, :) = nan;
+for j = 1:length(mt)
+    ind = find(m12(1, :) == mt(1, j));
+    if ~isempty(ind)
+        mt(4, j) = m12(2, ind);
+    end
+end
+end
+
+function X = triangulate_points(c1p_ss, c2p_ss, num_pts, param)
+X = nan(4, num_pts);
+for j = 1:num_pts
+    X(:, j) = vgg_X_from_xP_nonlin([c1p_ss(:, j) c2p_ss(:,j)], {param.P1, param.P2});
+end
+X = h2e(X);
+end
+

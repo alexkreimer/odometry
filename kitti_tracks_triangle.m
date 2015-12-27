@@ -1,4 +1,4 @@
-function kitti_tracks_triangle()
+function kitti_tracks_triangle(DIR, sequences)
 
 % * read image sequence
 % * detect harris corners
@@ -8,16 +8,17 @@ function kitti_tracks_triangle()
 close all;
 dbstop if error;
 
-KITTI_HOME = '/media/kreimer/my_drive/KITTI/dataset';
-%KITTI_HOME = '/media/kreimer/my_drive/record_20150720/dataset';
+KITTI_HOME = DIR;
+% KITTI_HOME = '/media/kreimer/my_drive/KITTI/dataset';
+% KITTI_HOME = '/media/kreimer/my_drive/record_20150720/dataset';
 DBG_DIR = fullfile('/home/kreimer/tmp/', 'debug');
 
-sequences = {'00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11'};
+% sequences = {'00', '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11'};
 
 for seq_num = 1:length(sequences)
     sequence = sequences{seq_num};
     image_dir  = fullfile(KITTI_HOME, 'sequences', sequence);
-    wdir = ['/home/kreimer/prj/odometry/tracks/', sequence];
+    wdir = fullfile(KITTI_HOME, 'tracks', sequence);
     if exist(wdir, 'dir')
         continue;
     end
@@ -99,11 +100,11 @@ for seq_num = 1:length(sequences)
             %         pt1p = info(prv).c1(:, mt(2,:));
             %         pt2p = info(prv).c2(:, mt(3,:));
             %         plot_triangles(i1, info(prv).i1, info(prv).i2, pt1, pt1p, pt2p);
-            save(['tracks/', sequence, '/frame_', int2str(i), '.mat'], 'info');
+            save(fullfile(KITTI_HOME, 'tracks', sequence, ['frame_', int2str(i), '.mat']), 'info');
             info_prv = info;
             clear info;
         else
-            save(['/home/kreimer/prj/odometry/tracks/', sequence, '/frame_', int2str(i), '.mat'], 'info');
+            save(fullfile(KITTI_HOME, 'tracks', sequence, ['frame_', int2str(i), '.mat']), 'info');
             first = false;
             
             info_prv = info;
@@ -116,6 +117,7 @@ end
 
 function match = prune_circle(m12, m11, m22, m12_prv)
 
+match = nan(4,0);
 k = 1;
 for i = 1:size(m12, 2)
     ind1 = m12(1, i);

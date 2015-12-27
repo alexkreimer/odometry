@@ -2,7 +2,7 @@ function test1()
 close all;
 dbstop if error;
 
-KITTI_HOME = '/home/kreimer/tmp/KITTI/dataset';
+KITTI_HOME = '/media/kreimer/my_drive/KITTI/dataset/';
 
 
 seq_home = fullfile(KITTI_HOME, 'sequences', '01');

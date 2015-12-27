@@ -28,6 +28,9 @@
   }
 }
 
+\renewcommand{\labelenumi}{\arabic{enumi}.}
+\renewcommand{\labelenumii}{\arabic{enumi}.\arabic{enumii}}
+
 \DeclarePairedDelimiter\abs{\lvert}{\rvert}%
 \DeclarePairedDelimiter\norm{\lVert}{\rVert}%
 \newtheorem{exmp}{Example}[section]
@@ -42,24 +45,35 @@
 
 \abstract{We propose a new algorithm for stereo visual odometry based on monocular methods}
 
+\section{Questions}
+What is the influence of the far away points on the 3d based
+algorithms?  ~\cite{tardif2008monocular} claim that since they may not
+be reliably reconstructed these points are a burden and thus it is an
+advantage of epipolar geometry based methods.
+
 \section{Introduction}
-TBD
 
 \section{Related Work}
-TBD
 
-\section{Algorithm Description}
+\section{Image Features}
 
-The algorithm in ~\ref{algo} solves VO in stereo setting. It relies on
-the estimation and decomposition of the essential matrix and the
-invariance of the cross-ratio under projectile transformation so we
-overview these first in ~\ref{sec:mono_odo} and ~\ref{sec:cross_ratio}
-
-\subsection{Monocular motion estimation}\label{sec:mono_odo}
+\section{Monocular motion estimation}\label{sec:mono_odo}
 Let $C_1$ and $C_2$ be the two camera frames.  $R$ describes the
-orientation of $C_1$ in as seen from $C_2$. $q_1$ is a direction (line
+orientation of $C_1$ in as seen from $C_2$. $t_1$ is a direction (line
 of site of the origin) from $C_2$ to $C_1$ described in $C_2$ (see
-Figure ~\ref{fig:two_views})
+Figure ~\ref{fig:two_views}).  We are interested to recover $R$ and
+$t$ from image feature measurements.
+
+\subsection{Fundamental Matrix Estimation}
+First method that we consider estimates Fundamental matrix:
+\begin{enumerate}
+\item Estimate the Fundamental matrix $\mathbf{F}$. We use normalized 8-point algorithm.
+\item Recover the Essential matrix: $\mathbf{E} = K^T\mathbf{F}K$
+\item Decompose $\mathbf{E}$ into camera rotation and translation, s.t. $\mathbf{E} = [\mathbf{t}]_\times\mathbf{R}$.
+\item Use non-linear optimization to improve the result.
+\end{enumerate}
+
+\subsection{Experimental Comparison of Motion Parameter Refinement Methods}
 
 Thus for every pair of image correspondences $x\in C_1,x'\in C_2$ holds
 \[
@@ -90,6 +104,60 @@ estimation is given in ~\cite{zhang1998determining}
   \caption{Two views}
   \label{fig:two_views}
 \end{figure}
+
+\section{Sensitivity of epipole estimation}
+We search for a way to estimate camera motion direction (e.g. the
+epipole) given a pair of overlapping views.  Follows the outline of
+two methods that we analyze.  Both methods rely on a set of putative matches that were extracted 
+
+\item Method 2:
+\begin{enumerate}
+\item Estimate homography $\mathbf{H}_{\boldsymbol{\infty}}$
+\item Warp homography estimation outliers using
+  $\mathbf{H}_{\boldsymbol{\infty}}$ (this cancels the influence of
+  orientation difference between two given views and leaves
+  only the influence of translation)
+\item Compute the epipole $\mathbf{e}$.  The epipole is the vanishing
+  point of the epipolar lines. Since the motion is pure translation
+  the features move along the epipolar lines. We fit lines into the
+  corresponding line segments and force all of them to intersect at
+  the same point ($\mathbf{e}$).  We do this by minimizing the
+  orthogonal distances from the epipolar lines to the corresponding
+  feature points (MLE). Consider notation:
+  \begin{enumerate}
+  \item $a_i, b_i$ are the image coordinate of the feature point $i$
+    in the second view
+  \item $n_i$ is the normal vector in the image plane to the epipolar
+    line that passes through $a_i,b_i$ 
+  \item $l_i$ is this epipolar line
+  \item $d(l_i,x)$ is the orthogonal distance between $l_i$ and $x$
+  \item $e$ is the epipole or a vanishing point that all the epipolar
+    lines intersect in
+\end{enumerate}
+\[
+\underset{\{n_i\}_{i=1}^n,e}{\text{argmin}}\ \sum_{i=1}^nd^2(l_i,a_i) + d^2(l_i,b_i)\quad\text{s.t.} \sum_{i=1}^nd(l_i,e)=0
+\]
+\end{enumerate}
+The main difference between two methods is that the former estimates
+all motion parameters at once while the latter does it in two steps.
+
+Below we provide the details of the experimental setup and its results
+
+\subsection{Experimental setup}
+
+We generate $N$ 3d points that are uniformly spread at
+$[-z_{min};z_{max}]$ in front of the camera.  The camera translates
+$1$m in positive $z$-direction.  Normal Gaussian noise is added to
+feature point locations in the second view and then we use each one of
+the methods described in previous section to recover the epipole.
+
+\section{Algorithm Description}
+
+The algorithm in ~\ref{algo} solves VO in stereo setting. It relies on
+the estimation and decomposition of the essential matrix and the
+invariance of the cross-ratio under projectile transformation so we
+overview these first in ~\ref{sec:mono_odo} and ~\ref{sec:cross_ratio}
+
 
 \subsection{Cross-ratio}\label{sec:cross_ratio}
 

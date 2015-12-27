@@ -1,4 +1,4 @@
-function val = objective1(w, t0, T, x, ratio, sigma, c)
+function val = objective1(w, K, t0, T, x, ratio, sigma, c)
 % c1, c2 - initial values of the scale parameters (default =1)
 
 % t0 - baseline vector
@@ -21,10 +21,16 @@ R2 = T2(1:3,1:3);
 t1 = -t0+c(1)*q1;
 t2 = -t0+c(2)*q2;
 
-v1 = sampson_err(R1,t1, x1(4:6,:), x1(1:3,:));
-v2 = sampson_err(R2,t2, x2(1:3,:), x2(4:6,:));
+t1 = q1;
+t2 = q2;
+
+F1 = K'\(skew(t1)*R1)/K;
+F2 = K'\(skew(t2)*R2)/K;
+
+v1 = sampsonF(F1, x1(1:3,:), x1(4:6,:));
+v2 = sampsonF(F2, x2(1:3,:), x2(4:6,:));
 
 delta = (abs(ratio)-(1+abs(c(1)/c(2))));
 
-val = v1'*v1/length(v1) + v2'*v2/length(v2) + w*delta*delta/(sigma*sigma);
+val = [v1/sqrt(length(v1)); v2/sqrt(length(v2)); w*delta/(sigma*sigma)];
 end

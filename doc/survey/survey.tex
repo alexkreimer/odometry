@@ -18,6 +18,36 @@
 \begin{abstract}
 \end{abstract}
 
+\subsection{Monocular Visual Odometry in Urban Environments Using an
+  Omnidirectional Camera}
+\cite{tardif2008monocular} solve monocular odometry.  The contribution
+of the paper is that they decouple the rotation estimation from the
+translation in order to estimate the pose of a new image.  The reason
+why this works is that reconstruction of far away 3d points is very
+poor and thus these points are a ``burden'' on a re-projection error
+minimization methods.  The authors make use of these features by
+computing epipolar geometry and recovering rotation out of it.  This
+method significantly reduces drift over the state of the art methods
+(the algorithm is tested on a 2.5 km sequence).  Translation
+scale/direction is still recovered using 3d based method.  They use
+SIFT instead of Harris since it gave better results.
+
+\subsection{The Fundamental matrix: theory, algorithms, and stability
+  analysis}
+This work ~\cite{luong1996fundamental} defines the Fundamental matrix
+as used today.  Before it was common to use the Essential matrix to
+express the geometry of 2 views.  The advantage of using F is that the
+camera does not have to be calibrated.  The authors develop the
+formalism of F, propose estimation methods, analyze their stability
+and study degenerate configurations.  Stability of the estimation is
+measured by error in the epipole (the authors argue that usually this
+is most commonly used computation result).  The results show that
+linear (8-point) estimation method is highly sensitive to noise
+(especially if the epipole is in the image) and may always be improved
+by non-linear refinement.  They study two different methods to
+parameterize F and a number of different optimization objectives (the
+best being Sampson error).
+
 \subsection{Real Time Localization and 3D Reconstruction}
 The work ~\cite{mouragnon2006real} estimates a motion of a calibrated
 camera (mono) set on an experimental vehicle.  Interest points (Harris) are

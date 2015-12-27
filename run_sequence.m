@@ -85,7 +85,7 @@ for i = 2:num_frames
     T_ss = tr2mat(a_ss);
     E_ss = skew(T_ss(1:3,4))*T_ss(1:3,1:3);
     F_ss = inv(param.K')*E_ss*inv(param.K);
-    stats(i).ss.T = inv(tr2mat(a_ss));
+    stats(i).ss.T = tr2mat(a_ss);
     
     % collect params
     params = struct('c1',  c1, ...
@@ -101,17 +101,8 @@ for i = 2:num_frames
     % Each column of A contains indices of features that comprise the
     % tracklet. A(k,l) is the index of the feature in frame i-j+k
     M = tracks_collect(info, i, M);
-
-    if i>2
-        % converts feature indices into coordinates
-        [params.tracksx, params.tracksy] = tracks_coords(info, M, 3, i);
-%         figure;
-%         imshow(i1,[]);
-%         hold on;
-%         plot(params.tracksx, params.tracksy);
-    end
     
-    [~, pout] = estimate_stereo_motion_new(params);
+    pout = estimate_stereo_motion_new(params);
     
     est1(i) = pout.est1;
     est2(i) = pout.est2;
@@ -125,16 +116,31 @@ for i = 2:num_frames
     E_final = skew(T_final(1:3,4))*T_final(1:3,1:3);
     F_final = inv(params.K')*E_final*inv(params.K);
     
+    pose_error = T_final\T_ss;
+    r_err(1,i) = rot_error(pose_error);
+    t_err(1,i) = trans_error(pose_error);
+    
     % global optimization
     if i>3
-        stats(i).ratio = pout.ratio;
-        stats(i).sigma = pout.sigma;    
-        
-        K = params.K;
-        x1 = [K\e2h(est2(i-1).x1); K\e2h(est2(i-1).x2)];
-        x2 = [K\e2h(est2(i).x1); K\e2h(est2(i).x2)];
-        x3 = [K\e2h(est1(i-1).x1); K\e2h(est1(i-1).x2)];
-        x4 = [K\e2h(est1(i).x1); K\e2h(est1(i).x2)];
+        % converts feature indices into coordinates
+        [tracks_x, tracks_y] = tracks_coords(info, M, 3, i);
+        % figure;
+        % imshow(i1,[]);
+        % hold on;
+        % plot(params.tracksx, params.tracksy);
+        % compute cross-ratios        
+        e = h2e(null(pout.est1.F));
+        [ratio, sigma] = cross_ratio(tracks_x, tracks_y, e);
+        stats(i).ratio = ratio;
+        stats(i).sigma = sigma;
+
+        x1 = [e2h(est2(i-1).x1(:,est2(i-1).inliers));...
+              e2h(est2(i-1).x2(:,est2(i-1).inliers))];
+        x2 = [e2h(est2(i).x1(:, est2(i).inliers));...
+              e2h(est2(i).x2(:, est2(i).inliers))];
+
+        x3 = [e2h(est1(i-1).x1); e2h(est1(i-1).x2)];
+        x4 = [e2h(est1(i).x1); e2h(est1(i).x2)];
         
         % w is the weight of the cross ratio term in the optimization
         % objective
@@ -143,14 +149,14 @@ for i = 2:num_frames
         for j = 1:length(w)
             t0  = [param.base 0 0]';
             x   = {x1, x2};
-            T   = {inv(est1(i-1).T_final), inv(est1(i).T_final)};
+            T   = {inv(est2(i-1).T_final), inv(est2(i).T_final)};
             
-            fun = @(c) objective1(w(j), t0, T, x, pout.ratio, pout.sigma, c);
-            [c, ~, exitflag] = fminsearch(fun, [1, 1]);
+            fun = @(c) objective1(w(j), param.K, t0, T, x, ratio, sigma, c);
+            [c, ~, exitflag] = lsqnonlin(fun, [1, 1]);
 
             T = inv(est1(i).T_final);
             t = T(1:3, 4);
-            t = c(1)*t/norm(t);
+            t = c(2)*t;
             T(1:3, 4) = t;
             field = ['w1_',num2str(j)];
             if ~isfield(stats, field)
@@ -168,6 +174,7 @@ for i = 2:num_frames
             stats(i).(field).exitflag = exitflag;
             stats(i).(field).T = inv(T);
             
+            continue;
             % operating points
             T  = {inv(est1(i-1).T_final), inv(est1(i).T_final)};            
             T1 = T{1}; R1 = T1(1:3,1:3); t1 = T1(1:3,4)';
@@ -176,8 +183,8 @@ for i = 2:num_frames
             h0(1,:) = quaternion.rotationmatrix(R1).e;
             h0(2,:) = quaternion.rotationmatrix(R2).e;
             x   = {x1, x2, x3, x4};
-            fun = @(c) objective2(w(j), t0, x, pout.ratio, pout.sigma, h0, c);
-            [c, ~, exitflag] = fminsearch(fun, c0);
+            fun = @(c) objective2(w(j), t0, x, ratio, sigma, h0, c);
+            [c, ~, exitflag] = lsqnonlin(fun, c0);
 
             R = quaternion(param2quaternion(c(7:9)', h0(2,:)')).RotationMatrix;
             t = c(10:12)';

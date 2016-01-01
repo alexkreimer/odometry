@@ -22,93 +22,99 @@ param.lm_max_iter   = 1000;
 param.inlier_thresh = 3;
 P1                  = K*[Id zeros(3,1)];     % left camera
 
-X(1,:) = -3 + (3-(-3))*rand(1, num_pts); % 3d points, as seen in the world frame
-X(2,:) = -3 + (3-(-3))*rand(1, num_pts);
+x_max = .2*z_max;
+X(1,:) = -x_max + (x_max-(-x_max))*rand(1, num_pts); % 3d points, as seen in the world frame
+X(2,:) = -x_max + (x_max-(-x_max))*rand(1, num_pts);
 X(3,:) = z_min + (z_max-z_min)*rand(1, num_pts);
 
-x = nan(2*num_frames, 2*num_pts);     % image projections
+% allocate image projections
+x      = nan(2*num_frames, 2*num_pts);     
 
-T = [Id zeros(3,1); 0 0 0 1];
-dt = [Id [0;0;1]; 0 0 0 1];
+% initial camera pose
+T      = [Id zeros(3,1); 0 0 0 1];
+
+% number of experiments
+N      = 50;
+
+% preallocate epipoles
+e      = nan(2,N,2);
+e_true = nan(2,num_frames);
+
+% generate camera motion
+Q      = rotx(.2*rand)*roty(.2*rand);
+t      = [.5*rand .5*rand .5+rand]';
+%Q = Id; t = [-.1 0 1]';
+
+dt     = [Q t; 0 0 0 1];
+
 for frame=1:num_frames
     % observations in the new image pair
-    
     [x((2*frame-1):2*frame, 1:num_pts), visible1]              = project(P1, X, T);
     [x((2*frame-1):2*frame,(num_pts+1):(2*num_pts)), visible2] = project(P1, X, T*T0);
-    
+
+    if frame>1
+        e_true(:,frame-1) = project(P1, T(1:3,4));
+    end
+
     T = dt*T;
     assert(all([visible1,visible2]),'some points are invisible in the new pose of a rig');
 end
 
-% number of experiments
-N = 10;
-
-% preallocate
-e = nan(2,N,2);
-
-
-figure;
-hold on;
+figure; subplot(231); hold on;
 title('feature tracks (both original and noisy)');
 
+r = nan(9,N,2);
 for i=1:N
     fprintf('experiment %d\n', i);
     x1 = x(1:2, 1:num_pts);
     x2 = x(3:4, 1:num_pts);
     
-    plot([x1(1,:); x2(1,:)], [x1(2,:); x2(2,:)]);
+    for j=1:num_pts
+        plot(x1(1,j), x1(2,j),'og');
+        plot([x1(1,j); x2(1,j)], [x1(2,j); x2(2,j)],'r');
+    end
     
     if i>1
-        x1 = x1 + randn(size(x1));
-        x2 = x2 + randn(size(x2));
+        x1 = x1 + 2*randn(size(x1));
+        x2 = x2 + 2*randn(size(x2));
     end
     
     plot([x1(1,:); x2(1,:)], [x1(2,:); x2(2,:)]);
-    
 
+    [F, T, ~, ~] = estimateF(x1, x2, K, 2);
+    [e(:,i,2), R] = epipole_from_H(K, x1, x2, X(3,:), 1);
+    e(:, i, 1) = h2e(null(F));
     
-    [F, T, E, inliers] = estimateF(x2, x1, K, 2);
-    [U,S,V] = svd(F);
-    e(:, i, 1) = h2e(V(:,3));
-    err(:,i) = sampson_error(E, K\e2h(x1), K\e2h(x2));
-    
-    e(:,i,2) = epipole_from_H(x1, x2);    
+    r(:,i,1) = reshape(T(1:3,1:3), [9 1]);
+    r(:,i,2) = R(:);
 end
 
-%save_dbg(fullfile(OUT_DIR, sprintf('tracks_%d_%d_%d', num_pts, z_max, z_min)));
-%close;
-
-edist = @(x1,x2) min([1, abs(x1-x2)/min([abs(x1),abs(x2)])]);
+% relative error in x and y
+dist_fn = @(x1,x2) min([1, abs(x1-x2)/min(abs([x1,x2]))]);
+rel_error = nan(2,N,2);
 for i=1:N
     for j = 1:2
-        x1 = e(1,1,j); x2 = e(1,i,j);
-        y1 = e(2,1,j); y2 = e(2,i,j);
+        x1 = e_true(1,1); x2 = e(1,i,j);
+        y1 = e_true(2,1); y2 = e(2,i,j);
         
-        de(1,i,j) = edist(x1, x2);
-        de(2,i,j) = edist(y1, y2);
+        rel_error(1,i,j) = dist_fn(x1, x2);
+        rel_error(2,i,j) = dist_fn(y1, y2);
     end
 end
-err = colnorm(err);
 
 % relative error plot
-figure;
-hold on;
+subplot(232); hold on;
 title('epipole relative coordinate error');
-plot(de(:,:,1)');
-legend('x','y');
-
-%save_dbg(fullfile(OUT_DIR, sprintf('e_rel_error_%d_%d_%d', num_pts, z_max, z_min)));
-%close;
+plot(rel_error(:,:,1)');
+plot(rel_error(:,:,2)');
+legend('x-F','y-F','x-H','y-H');
 
 % scatter the epipoles
-figure; hold on;
+subplot(233); hold on;
 plot(e(1,:,1), e(2,:,1), '.r');
-plot(e(1,:,2), e(2,:,2), '.b');
-plot(K(1,3),K(2,3), '*g');
+plot(e(1,:,2), e(2,:,2), 'ob');
+plot(e_true(1,1), e_true(2,1), '*g');
 legend('epipole(s) from F', 'epipole(s) from H', 'real epipole');
-
-%save_dbg(fullfile(OUT_DIR, sprintf('epipoles_%d_%d_%d', num_pts, z_max, z_min)));
-%close;
 
 % fit normal distribution to the epipole estimations
 data1 = e(:,:,1)';
@@ -129,24 +135,49 @@ y2 = pdf(pd2, x_values2);
 y3 = pdf(pd3, x_values3);
 y4 = pdf(pd4, x_values4);
 
-figure; hold on; title('epipole per-coordinate distributions');
+subplot(234); hold on; title('epipole per-coordinate distributions');
 plot(x_values1, y1,'LineWidth',2);
 plot(x_values2, y2,'LineWidth',2);
 plot(x_values3, y3,'LineWidth',2);
 plot(x_values4, y4,'LineWidth',2);
 legend('x of epiple from F', 'y of epipole from F', 'x of epipole from H', 'y of epipole from H');
 
-%save_dbg(fullfile(OUT_DIR, sprintf('e_pdf_%d_%d_%d', num_pts, z_max, z_min)));
-%close;
+r_err = nan(2,N);
+t_err = nan(2,N);
 
-fileID = fopen(fullfile(OUT_DIR, sprintf('e_pdf_%d_%d_%d.txt', num_pts, z_max, z_min)),'w');
+for i=1:N
+    r1 = reshape(r(:,i,1),[3,3]); t1 = K\e2h(e(:,i,1)); t1 = t1/norm(t1);
+    T1 = [r1 t1; 0 0 0 1];
+    r2 = reshape(r(:,i,2),[3,3]); t2 = K\e2h(e(:,i,2)); t2 = t2/norm(t2);
+    T2 = [r2 t2; 0 0 0 1];
+    
+    pose_error = T1\dt;
+    r_err(1,i) = mod(rot_error(pose_error), pi);
+    r_err(1,i) = min(r_err(1,i),pi-r_err(1,i));
+    t_err(1,i) = trans_error(pose_error);
+    
+    pose_error = T2\dt;
+    r_err(2,i) = rot_error(pose_error);
+    t_err(2,i) = trans_error(pose_error);
+end
 
-fprintf(fileID, 'x-distribution-F mean: %g, sigma: %g\n', pd1.mu, pd1.sigma);
-fprintf(fileID, 'y-distribution-F mean: %g, sigma: %g\n', pd2.mu, pd2.sigma);
-fprintf(fileID, 'x-distribution-H mean: %g, sigma: %g\n', pd3.mu, pd3.sigma);
-fprintf(fileID, 'y-distribution-H mean: %g, sigma: %g\n', pd4.mu, pd4.sigma);
+subplot(235); hold on; title('rotation error');
+plot(r_err(1,:));
+plot(r_err(2,:));
+legend('F','H');
 
-fclose(fileID);
+subplot(236); hold on; title('translation error');
+plot(t_err(1,:));
+plot(t_err(2,:));
+legend('F','H');
+
+fprintf('x-distribution-F mean: %g, sigma: %g\n', pd1.mu, pd1.sigma);
+fprintf('y-distribution-F mean: %g, sigma: %g\n', pd2.mu, pd2.sigma);
+fprintf('x-distribution-H mean: %g, sigma: %g\n', pd3.mu, pd3.sigma);
+fprintf('y-distribution-H mean: %g, sigma: %g\n', pd4.mu, pd4.sigma);
+
+fprintf('real epipole %g %g\n', e_true);
+
 end
 
 function val = sampson_error(E, x1, x2)

@@ -1,6 +1,6 @@
 % This function estimates the motion of a stereo rig between 2 pairs of stereo frames
 
-function pout = estimate_stereo_motion_new(pin)
+function pout = stereo_motion_F(pin)
 % param.c1p feature seen in the left camera, time {i-1}
 % param.c1  same features, same camera, time {i}
 %

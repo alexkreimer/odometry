@@ -79,8 +79,10 @@ for i = 2:num_frames
     c2p_ss = info(prv).c2(:, mt(3, valid)); % previous right
     % produce 3d
     X = triangulate_points(c1p_ss, c2p_ss, nnz(valid), param);
-    % optimization
+
+    % 3d based reprojection error minimization
     [a_ss, ~, ~, ~, ~] = ransac_minimize_reproj(X, [c1_ss; c2_ss], param);
+    
     % save the results
     T_ss = tr2mat(a_ss);
     E_ss = skew(T_ss(1:3,4))*T_ss(1:3,1:3);
@@ -102,7 +104,7 @@ for i = 2:num_frames
     % tracklet. A(k,l) is the index of the feature in frame i-j+k
     M = tracks_collect(info, i, M);
     
-    pout = estimate_stereo_motion_new(params);
+    pout = stereo_motion_F(params);
     
     est1(i) = pout.est1;
     est2(i) = pout.est2;

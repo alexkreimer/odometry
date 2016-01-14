@@ -13,7 +13,7 @@ param.calib.cv = P0(2,3);
 % procedure
 param.init = true;
 % fundamental
-param.F = vgg_F_from_P(P0,P1);
+param.F = vgg.vgg_F_from_P(P0,P1);
 
 param.feat_num = 4000;                       % number of corners to extract per image
 param.feat_method = 'MinimumEigenvalue';     % corner extraction method (not used)

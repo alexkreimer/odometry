@@ -425,8 +425,8 @@ bool eval (string prefix, string result_sha,Mail* mail) {
   char *result_dir_    = getenv("ODO_RES_DIR");
 
   // ground truth and result directories
-  string gt_dir         = (!gt_dir_) ? "/home/kreimer/KITTI/dataset/poses" : gt_dir_;
-  string result_dir     = (!result_dir_) ? "/home/kreimer/KITTI/results/" : result_dir_;
+  string gt_dir         = (!gt_dir_) ? "/media/kreimer/my_drive/KITTI/dataset/poses" : gt_dir_;
+  string result_dir     = (!result_dir_) ? "/media/kreimer/my_drive/KITTI/results/" : result_dir_;
   result_dir            = result_dir + result_sha;
   string error_dir      = result_dir + "/errors";
   string plot_path_dir  = result_dir + "/plot_path";

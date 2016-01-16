@@ -1,21 +1,33 @@
-function T = trans_X(K,R,base,Xp,x1,x2)
+function t = trans_X(K,R,base,Xp,xl,xr,t0)
 
-fun = @(t) objective(K,R,base,Xp,x1,x2,t);
-[t_opt,resnorm,residual,exitflag] = lsqnonlin(fun,zeros(3,1));
-T = [R t_opt; 0 0 0 1];
+if nargin < 7
+    t0 = zeros(3,1);
 end
 
-function val = objective(K,R,base,Xp,x1,x2,t)
-
-val = nan(1,length(Xp));
-
-for i=1:length(Xp)
-    P1 = K*[R t];
-    P2 = K*[R t+R'*[base 0 0]'];
-    
-    x1p= util.h2e(P1*util.e2h(Xp(:,i)));
-    x2p= util.h2e(P2*util.e2h(Xp(:,i)));
-    
-    val(i) = norm(x1p-x1(:,i))+norm(x2p-x2(:,i));
+fun = @(t) objective(K,R,base,Xp,xl,xr,t);
+options = optimset( optimset('lsqnonlin') ,...
+    'Algorithm','levenberg-marquardt',...
+    'Diagnostics','off',...
+    'TolFun',1e-8,...
+    'TolX',1e-10,...
+    'Display','off',...
+    'MaxFunEvals', 3000);
+    %MaxIter', 10000);
+[t_opt,resnorm,residual,exitflag] = lsqnonlin(fun,t0,[],[],options);
+t = t_opt/norm(t_opt);
 end
+
+function val = objective(K,R,base,Xp,xl,xr,t)
+
+R = R';
+t = -R*t;
+
+P1 = K*[R' -R'*t];
+P2 = K*[R' -R'*(t+[base;0;0])];
+
+xlp= util.h2e(P1*util.e2h(Xp));
+xrp= util.h2e(P2*util.e2h(Xp));
+
+val = sum((xlp-xl).*(xlp-xl)+(xrp-xr).*(xrp-xr),1);
+
 end

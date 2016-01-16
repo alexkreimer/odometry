@@ -40,7 +40,6 @@ function r = vtheta2r(vtheta)
     else
         axis  = vtheta(1:3)/angle;
     end
-    fprintf('axis: %f %f %f, angle %f\n', axis, angle);
     r = [axis angle];
 end
 

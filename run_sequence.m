@@ -56,7 +56,7 @@ for i = begin:num_frames
     x2 = x2(:,visible);
     x1p= x1p(:,visible);
     x2p= x2p(:,visible);
-    
+
     [a_ss, ~, ~, ~, ~] = estimation.ransac_minimize_reproj(Xp, [x1; x2], param);
     stats(i).ss.T = util.tr2mat(a_ss);
 
@@ -66,8 +66,7 @@ for i = begin:num_frames
     [TF1,~] = estimation.rel_motion_F(K,x1p,x1);
     [TF2,inliers] = estimation.rel_motion_F(K,x2p,x1);
     TF = estimation.stereo_motion_triangulate(TF1,TF2,[param.base 0 0]');
-    
-    stats(i).no_opt_F.T = TF;
+    stats(i).no_opt_F.T = TF1;
     
     % keep this to use cross ratio later
     stats(i).no_opt_F.T2 = TF2;
@@ -82,7 +81,6 @@ for i = begin:num_frames
     R = estimation.H_inf_nonlin(K,x1,x2,X(3,:),param.base,150,.01);
     TX = estimation.trans_X(K,R,param.base,Xp,x1,x2);
     stats(i).tx.T = TX;
-    
     
     % refinement
     if 0
@@ -102,7 +100,6 @@ for i = begin:num_frames
             fun = @(c) estimation.objective1(1,K, param.base,...
                 tr1, tr2, ratio, sigma, c);
             [c, ~, exitflag] = lsqnonlin(fun, [1 1]);
-            
             T = inv(stats(i).no_opt_F.T);
             T(1:3,4) = c(2)*T(1:3,4);
             field = ['objective1_w_',strrep(num2str(w),'.','')];
@@ -261,7 +258,6 @@ for i=1:size(A,2)
         tracks(tid) = tval;
     end
 end
-
 end
 
 function coords =  get_track_coords(tracks, len)

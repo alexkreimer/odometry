@@ -1,5 +1,8 @@
 function rel_motion(num_pts, z_max, z_min)
 
+close all;
+dbstop if error;
+
 num_frames = 2;
 K = [718.8560,  0,      607.1928;
     0,     718.8560, 185.2157;
@@ -21,9 +24,19 @@ param.inlier_thresh = 3;
 P1                  = K*[Id zeros(3,1)];     % left camera
 
 x_max = .2*z_max;
+brk = 20;
+num_pts = num_pts - brk;
 X(1,:) = -x_max + (x_max-(-x_max))*rand(1, num_pts); % 3d points, as seen in the world frame
 X(2,:) = -x_max + (x_max-(-x_max))*rand(1, num_pts);
 X(3,:) = z_min + (z_max-z_min)*rand(1, num_pts);
+
+X_close(1,:) = -x_max + (x_max-(-x_max))*rand(1, brk); % 3d points, as seen in the world frame
+X_close(2,:) = -x_max + (x_max-(-x_max))*rand(1, brk);
+X_close(3,:) = 2 + (5-2)*rand(1, brk);
+
+X = [X X_close];
+
+num_pts = num_pts + brk;
 
 % allocate image projections
 x      = nan(2*num_frames, 2*num_pts);
@@ -32,7 +45,7 @@ x      = nan(2*num_frames, 2*num_pts);
 T      = [Id zeros(3,1); 0 0 0 1];
 
 % number of experiments
-N      = 50;
+N      = 10;
 
 % preallocate epipoles
 e      = nan(2,N,2);
@@ -42,6 +55,8 @@ e_gt = nan(2,num_frames-1);
 R      = rotx(.2*rand)*roty(.2*rand);
 t      = [.5*rand .5*rand .5+rand]';
 t      = t/norm(t);
+R_gt = R;
+t_gt = t;
 %R = Id; t = [0 0 1]';
 dt     = [R t; 0 0 0 1];
 
@@ -61,15 +76,15 @@ end
 h = figure; subplot(231); hold on;
 title('feature tracks (both original and noisy)');
 
-names = {'F', 'H'};
+names = {'F', 'FX', 'Fg', 'Hg', 'HX'};
 
 r = nan(9,N,length(names));
 e = nan(2,N,length(names));
 
 for i=1:N
     fprintf('experiment %d\n', i);
-    x1 = x(1:2, 1:num_pts);
-    x2 = x(3:4, 1:num_pts);
+    x1 = x(1:2, 1:num_pts); x1r = x(1:2,(num_pts+1):(2*num_pts));
+    x2 = x(3:4, 1:num_pts); x2r = x(3:4,(num_pts+1):(2*num_pts));
 
     figure(h); subplot(231);
     for j=1:num_pts
@@ -84,17 +99,38 @@ for i=1:N
     
     plot([x1(1,:); x2(1,:)], [x1(2,:); x2(2,:)]);
     
+    n = 1;
+    % R from F decomposition, t null vector of F
     [F, T, ~, ~]  = estimation.estimateF(x1, x2, K, 2);
-    e(:,i,1) = util.h2e(null(F));
-    r(:,i,1) = reshape(T(1:3,1:3), [9 1]);
+    R = T(1:3,1:3);
+    e(:,i,n) = util.h2e(null(F));
+    r(:,i,n) = reshape(R,[9 1]);
+
+    n = n+1;
+    % R as above, t by minimizing reprojection errors of 3d points
+    t = estimation.trans_X(K,R,param.base,X,x2,x2r,-R_gt'*t_gt);
+    e(:,i,n) = util.h2e(K*t);
+    r(:,i,n) = reshape(R,[9 1]);
     
-    [T, ~] = estimation.rel_motion_H(K, x1, x2, X(3,:), 1, 250, .01, e_gt);
-    for j=1:size(T,3)
-        T_cur = T(:,:,j);
-        e(:,i,1+j) = util.h2e(K*T_cur(1:3,4));
-        r(:,i,1+j) = reshape(T(1:3,1:3,j),[9 1]);
-    end
+    n = n+1;
+    % R as above, t by fitting epipolar lines
+    H = K*R/K;
+    t = estimation.trans_geom(K,H,x1,x2);
+    e(:,i,n) = util.h2e(K*t);
+    r(:,i,n) = reshape(R,[9 1]);    
     
+    n = n+1;
+    % R from H, t by fitting epipolar lines
+    [T, inliers] = estimation.rel_motion_H(K, x1, x2, X(3,:), 1, 250, .01, e_gt);
+    R = T(1:3,1:3);
+    e(:,i,n) = util.h2e(K*T(1:3,4));
+    r(:,i,n) = reshape(R,[9 1]);
+
+    n = n+1;
+    % R as above, t by minimizing reprojection errors of 3d points
+    t = estimation.trans_X(K,R,param.base,X,x2,x2r,-R_gt'*t_gt);
+    e(:,i,n) = util.h2e(K*t);
+    r(:,i,n) = reshape(R,[9 1]);
 end
 
 figure(h);
@@ -115,10 +151,10 @@ end
 subplot(232); hold on;
 title('epipole worst relative coordinate error');
 for j=1:size(e,3)
-    cur_rel_error = max(rel_error(:,:,j),[],1);
-    plot(cur_rel_error, 'DisplayName', sprintf('%s', names{j}));
+%    cur_rel_error = max(rel_error(:,:,j),[],1);
+%    plot(cur_rel_error, 'DisplayName', sprintf('%s', names{j}));
     plot(rel_error(1,:,j)','DisplayName', sprintf('x-%s', names{j}));
-    plot(rel_error(2,:,j)','DisplayName', sprintf('y-%s', names{j}));
+%    plot(rel_error(2,:,j)','DisplayName', sprintf('y-%s', names{j}));
 end
 legend show;
 
@@ -137,17 +173,17 @@ for j= 1:size(e,3)
     data = e(:,:,j)';
     
     pd_x = fitdist(data(:,1), 'Normal');
-    pd_y = fitdist(data(:,2), 'Normal');
+%    pd_y = fitdist(data(:,2), 'Normal');
     
     x_values1 = min(data(:,1)):.1:max(data(:,1));
-    x_values2 = min(data(:,2)):.1:max(data(:,2));
+%    x_values2 = min(data(:,2)):.1:max(data(:,2));
     
     y1 = pdf(pd_x, x_values1);
-    y2 = pdf(pd_y, x_values2);
+%    y2 = pdf(pd_y, x_values2);
     plot(x_values1, y1,'LineWidth',2, 'DisplayName', sprintf('x-%s',names{j}));
-    plot(x_values2, y2,'LineWidth',2, 'DisplayName', sprintf('y-%s',names{j}));
+%    plot(x_values2, y2,'LineWidth',2, 'DisplayName', sprintf('y-%s',names{j}));
     fprintf('x-distribution %s mean: %g, sigma: %g\n', names{j}, pd_x.mu, pd_x.sigma);
-    fprintf('y-distribution %s mean: %g, sigma: %g\n', names{j}, pd_y.mu, pd_y.sigma);
+%    fprintf('y-distribution %s mean: %g, sigma: %g\n', names{j}, pd_y.mu, pd_y.sigma);
 end
 plot([e_gt(1,1);e_gt(1,1)],[0.002;0]);
 %plot([e_gt(2,1);e_gt(2,1)],[0.002;0]);
@@ -170,18 +206,19 @@ for i=1:N
     end
 end
 
-subplot(235); hold on; title(sprintf('average rotation error %f %f',mean(r_err,2)));
+subplot(235); hold on;
+title({'average rotation errors:',mean(r_err,2)});
 for j=1:size(e,3)
     plot(r_err(j,:),'DisplayName',names{j});
 end
 legend show;
 
-subplot(236); hold on; title(sprintf('average translation error %f %f',mean(t_err,2)));
+subplot(236); hold on;
+title({'average translation error', mean(t_err,2)});
 for j=1:size(e,3)
     plot(t_err(j,:),'DisplayName',names{j});
 end
 legend show;
-
 fprintf('real epipole %g %g\n', e_gt);
 
 end

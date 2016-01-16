@@ -77,7 +77,7 @@ for i = begin:num_frames
     TH2 = estimation.rel_motion_H(K,x2p,x1,X(3,:),param.base);
     TH = estimation.stereo_motion_triangulate(TH1,TH2,[param.base 0 0]');
     stats(i).no_opt_H.T = TH;
-    
+
     R = estimation.H_inf_nonlin(K,x1,x2,X(3,:),param.base,150,.01);
     TX = estimation.trans_X(K,R,param.base,Xp,x1,x2);
     stats(i).tx.T = TX;
@@ -204,29 +204,6 @@ for j = 1:length(mt)
 end
 end
 
-function [X,visible] = triangulate_chieral(x1,x2,P1,P2,i1,i2)
-num_pts = length(x1);
-X = nan(4,num_pts);
-visible = false(1,num_pts);
-detM1 = det(P1(1:3,1:3));
-detM2 = det(P2(1:3,1:3));
-for j = 1:num_pts
-    if nargin > 4
-    figure;
-    imshow([i1;i2]); hold on; plot([x1(1,j);x2(1,j)],[x1(2,j);x2(2,j)+size(i1,1)]);
-    end
-    
-    X(:, j) = vgg.vgg_X_from_xP_nonlin([x1(:, j) x2(:,j)],{P1,P2});
-    
-    p1 = P1*X(:,j);
-    p2 = P2*X(:,j);
-    visible(j) = X(4,j)*p1(3)*detM1 > 0 && X(4,j)*p2(3)*detM2 > 0;
-    %x1(:,j)'
-    %x2(:,j)'
-    %visible(j)
-end
-X = util.h2e(X);
-end
 
 function X = triangulate_points(c1p_ss, c2p_ss, param)
 num_pts = length(c1p_ss);

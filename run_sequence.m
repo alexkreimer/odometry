@@ -37,53 +37,9 @@ for i = begin:num_frames
     [i1, i2] = read_images(image_dir, i);
     [i1p,i2p]= read_images(image_dir, i-1);
 
-<<<<<<< HEAD
-    % our algorithm only uses 1.5 stereo pair, while stereoscan needs all 4
-    % images.  This functions completes the match into the current right
-    % image
-    mt  = info(cur).mt;
-    m12 = info(cur).m12;    
-    mt = complete_circle(mt, m12);
-
-    % collect feature points for stereo-scan
-    valid  = ~isnan(mt(4, :));
-    c1_ss  = info(cur).c1(:, mt(1, valid));
-    c2_ss  = info(cur).c2(:, mt(4, valid));
-    c1p_ss = info(prv).c1(:, mt(2, valid)); % previous left
-    c2p_ss = info(prv).c2(:, mt(3, valid)); % previous right
-    % produce 3d
-    X = triangulate_points(c1p_ss, c2p_ss, nnz(valid), param);
-
-    % 3d based reprojection error minimization
-    [a_ss, ~, ~, ~, ~] = ransac_minimize_reproj(X, [c1_ss; c2_ss], param);
-    
-    % save the results
-    T_ss = tr2mat(a_ss);
-    E_ss = skew(T_ss(1:3,4))*T_ss(1:3,1:3);
-    F_ss = inv(param.K')*E_ss*inv(param.K);
-    stats(i).ss.T = tr2mat(a_ss);
-    
-    % collect params
-    params = struct('c1',  c1, ...
-                    'c1p', c1p,...
-                    'c2p', c2p,...
-                    'tracksx', [],...
-                    'tracksy', [],...
-                    't0', [param.base,0,0]',...   % stereo baseline
-                    'K', param.K);
-
-    % M is a cell-array; M{j} holds all tracklets of length j, found in
-    % frame i. A = M{j} is an j\times N array (N is the number of tracklets)
-    % Each column of A contains indices of features that comprise the
-    % tracklet. A(k,l) is the index of the feature in frame i-j+k
-    M = tracks_collect(info, i, M);
-    
-    pout = stereo_motion_F(params);
-=======
     update_tracks(fullfile('/media/kreimer/my_drive/KITTI/dataset/tracks',sequence,sprintf('%06d.txt',i-1)), tracks);
     
     coords2 = get_track_coords(tracks,2);
->>>>>>> 496c88ea7e05a7099c6cabaa46b92d2f7d05ddcf
     
     x1p = permute(coords2(1:2,2,:), [1 3 2]);
     x2p = permute(coords2(3:4,2,:), [1 3 2]);
@@ -111,7 +67,7 @@ for i = begin:num_frames
     [TF2,inliers] = estimation.rel_motion_F(K,x2p,x1);
     TF = estimation.stereo_motion_triangulate(TF1,TF2,[param.base 0 0]');
     
-    stats(i).no_opt_F.T = TF1;
+    stats(i).no_opt_F.T = TF;
     
     % keep this to use cross ratio later
     stats(i).no_opt_F.T2 = TF2;
@@ -126,6 +82,7 @@ for i = begin:num_frames
     R = estimation.H_inf_nonlin(K,x1,x2,X(3,:),param.base,150,.01);
     TX = estimation.trans_X(K,R,param.base,Xp,x1,x2);
     stats(i).tx.T = TX;
+    
     
     % refinement
     if 0
@@ -201,17 +158,9 @@ for i=1:length(fields)
     poses = nan(4, 4, num_frames);
     poses(:,:,1) = [eye(3) zeros(3,1); 0 0 0 1];
     for j=2:num_frames
-        dist(j) = norm(stats(j).(field).T(1:3,4));
-    end
-    dist
-    for j=2:num_frames
         TH = stats(j).(field).T;
         poses(:,:,j) = poses(:,:,j-1)/TH;
     end
-    for j=2:num_frames
-        dist_after(j) = norm(poses(1:3,4,j-1)-poses(1:3,4,j));
-    end
-    dist_after
     dir = fullfile(RESULT_DIR, field);
     if exist(dir,'dir')
         command = ['rm -fr ', dir];
@@ -275,9 +224,9 @@ for j = 1:num_pts
     p1 = P1*X(:,j);
     p2 = P2*X(:,j);
     visible(j) = X(4,j)*p1(3)*detM1 > 0 && X(4,j)*p2(3)*detM2 > 0;
-    x1(:,j)'
-    x2(:,j)'
-    visible(j)
+    %x1(:,j)'
+    %x2(:,j)'
+    %visible(j)
 end
 X = util.h2e(X);
 end

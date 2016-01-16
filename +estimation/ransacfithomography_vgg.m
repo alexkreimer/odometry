@@ -67,7 +67,7 @@ function [H, inliers] = ransacfithomography_vgg(x1, x2, t, skip_non_lin)
     degenfn   = @isdegenerate;
     
     % x1 and x2 are 'stacked' to create a 6xN array for ransac
-    [H, inliers] = util.ransac([x1; x2], fittingfn, distfn, degenfn, s, t);
+    [H, inliers] = util.ransac([x1; x2], fittingfn, distfn, degenfn, s, t,0,100,2000);
 
     % Now do a final least squares fit on the data points considered to
     % be inliers.

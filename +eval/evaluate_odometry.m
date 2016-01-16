@@ -5,9 +5,9 @@ DATA_ROOT  = '/media/kreimer/my_drive/KITTI/';
 
 info.gt.poses = util.read_poses(fullfile(DATA_ROOT, 'dataset', 'poses', [sequence, '.txt']));
 info.ss.poses = util.read_poses(fullfile(DATA_ROOT, 'results', 'ss', 'data', [sequence, '.txt']));
-%info.no_opt_H.poses = util.read_poses(fullfile(DATA_ROOT, 'results', 'no_opt_H', 'data', [sequence, '.txt']));
-%info.no_opt_F.poses = util.read_poses(fullfile(DATA_ROOT, 'results', 'no_opt_F', 'data', [sequence, '.txt']));
-info.H_inf.poses = util.read_poses(fullfile(DATA_ROOT, 'results', 'H_inf', 'data', [sequence, '.txt']));
+info.no_opt_H.poses = util.read_poses(fullfile(DATA_ROOT, 'results', 'no_opt_H', 'data', [sequence, '.txt']));
+info.no_opt_F.poses = util.read_poses(fullfile(DATA_ROOT, 'results', 'no_opt_F', 'data', [sequence, '.txt']));
+info.tx.poses = util.read_poses(fullfile(DATA_ROOT, 'results', 'tx', 'data', [sequence, '.txt']));
 
 fields = fieldnames(info);
 num_alg= length(fields);

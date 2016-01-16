@@ -12,6 +12,4 @@ for i = 2:N
     dist(i) = dist(i-1)+sqrt(dt'*dt);
 end
 
-dist
-
 end

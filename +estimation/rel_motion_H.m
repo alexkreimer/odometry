@@ -34,12 +34,8 @@ x2o = x2(:,~inliers);
 x1  = x1(:, inliers);
 x2  = x2(:, inliers);
 
-N = 1;
-H_inf = nan(3,3,N);
-
 R = estimation.H_inf_nonlin(K, x1, x2, d(inliers), b, thr1, thr2);
-% initial computation
-H_inf(:,:,1) = K*R/K;
+H = K*R/K;
 
 % objective1
 % H   = H(:,:,1)/H(3,3,1);
@@ -49,7 +45,6 @@ H_inf(:,:,1) = K*R/K;
 % H = ones(3);
 % H(1:8) = h;
 % H_inf(:,:,2) = H;
-
 % H_gt = K*R_gt/K;
 
 % figure;
@@ -65,32 +60,16 @@ H_inf(:,:,1) = K*R/K;
 %     semilogy(d,err,'o','DisplayName',names{j});
 % end
 % legend show;
-T = nan(4,4,N);
-for i=1:size(H_inf,3)
-    H = H_inf(:,:,i);
-    R = K\H*K;
 
-    % warp the points. Note, we warp 2->1 with inv(H)
-    x1ot = util.h2e(H*x1o);
 
-    % find the epipole
-    a = util.h2e(x2o);
-    b = x1ot;
+t = estimation.trans_geom(K, H, x1o, x2o);
+e = util.h2e(K*t);
 
-    lines = compute_initial_lines(a, b);
-    e0 = util.h2e(cross(lines(:,1),lines(:,2)));
-
-    opt = optimset(optimset('lsqnonlin') , 'Algorithm','levenberg-marquardt', 'Diagnostics','off', 'Display','off');
-    fun = @(e) objective(a, b, e);
-    [e,~,~,~] = lsqnonlin(fun, e0, [], [], opt);
-    %if norm(e-e_gt)/norm(e_gt) > 1
-    %    warn('epipole is way off');
-    %end
-    
-    t = K\util.e2h(e);
-    t = t/norm(t);
-    T(:,:,i) = [R t; 0 0 0 1];
+if nargin >7 && norm(e-e_gt)/norm(e_gt) > 1
+    warn('epipole is way off');
 end
+
+T = [R t; 0 0 0 1];
 
 % figure; hold on;
 % for i = 1:N
@@ -113,36 +92,7 @@ end
 % close;
 end
 
-function val = objective(a, b, e)
 
-% a 2xN points s.t. a(i) is a point on line i
-% b 2xN points s.t. b(i) is a point on line i
-% e epipole
-
-N   = size(a,2);
-val = zeros(2*N,1);
-
-for i=1:N
-    p1 = a(:,i);
-    p2 = b(:,i);
-
-    l = estimation.fit_line_e(p1, p2, e);
-    
-    val(2*i-1) = l'*[p1;1];
-    val(2*i-0) = l'*[p2;1];
-end
-end
-
-function lines = compute_initial_lines(a, b)
-N     = size(a,2);
-lines = nan(3,N);
-
-for i = 1:N
-    p1 = [a(:,i); 1];
-    p2 = [b(:,i); 1];
-    lines(:,i) = cross(p1, p2);
-end
-end
 
 function val = objective1(x1,x2,F,h)
 % symmetric transfer error

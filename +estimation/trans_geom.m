@@ -11,6 +11,12 @@ function t = trans_geom(K,H,x1,x2)
 % geometric distances of the points to the epipolar lines
 
 % warp the points
+
+if size(x1,1) == 2
+    x1 = util.e2h(x1);
+    x2 = util.e2h(x2);
+end
+
 x1t = util.h2e(H*x1);
 
 a = util.h2e(x2);
@@ -22,8 +28,8 @@ e0 = util.h2e(cross(lines(:,1),lines(:,2)));
 opt = optimset(optimset('lsqnonlin') , 'Algorithm','levenberg-marquardt', 'Diagnostics','off', 'Display','off');
 fun = @(e) objective(a, b, e);
 [e,resnorm,residual,exitflag] = lsqnonlin(fun, e0, [], [], opt);
-
-t = K\e;
+t = K\[e;1];
+t = t/norm(t);
 end
 
 function lines = compute_initial_lines(a, b)

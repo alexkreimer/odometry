@@ -7,8 +7,9 @@ function [T,inliers] = rel_motion_H(K, x1, x2, d, b, thr1, thr2, e_gt)
 % size(x1)=size(x2)=[2,N]
 
 if nargin<7
-    thr2 = .01;
+    thr2 = 4;
 end
+
 if nargin<6
     thr1 = 250;
 end
@@ -23,7 +24,9 @@ if rows==2
 end
 
 inliers = d>thr1*b;
+
 if sum(inliers<10)
+    warn('not enough distant points for current distance threshold')
     inliers = d>.5*thr1*b;
     if sum(inliers<10)
         inliers = d>.5*thr1*b;
@@ -34,7 +37,31 @@ x2o = x2(:,~inliers);
 x1  = x1(:, inliers);
 x2  = x2(:, inliers);
 
-R = estimation.H_inf_nonlin(K, x1, x2, d(inliers), b, thr1, thr2);
+% The 3x3 homography such that x2 = H*x1.
+num_pts = length(x1);
+s = 4;
+max_size = 0;
+% RANSAC
+for i = 1:500
+    sample = randsample(num_pts,s);
+    H = vgg.vgg_H_from_x_lin(x1(:,sample),x2(:,sample));
+    inliers = homogdist2d(H,[x1;x2],thr2);
+    support_size = sum(inliers);
+    if support_size>max_size
+        max_size = support_size;
+        inliers_best = inliers;
+    end
+end
+% re-estimate for the support set
+inliers = inliers_best;
+H = vgg.vgg_H_from_x_lin(x1(:,inliers),x2(:,inliers));
+
+% refine the estimate
+R = K\H*K;
+[U,~,V] = svd(R);
+R = U*eye(3)*V';
+
+R = estimation.H_inf_nonlin(K,x1(:,inliers_best),x2(:,inliers_best),d(inliers_best),b,thr1,thr2,R);
 H = K*R/K;
 
 % objective1
@@ -61,8 +88,7 @@ H = K*R/K;
 % end
 % legend show;
 
-
-t = estimation.trans_geom(K, H, x1o, x2o);
+t = estimation.trans_geom(K,H,x1o,x2o);
 e = util.h2e(K*t);
 
 if nargin >7 && norm(e-e_gt)/norm(e_gt) > 1
@@ -80,9 +106,9 @@ T = [R t; 0 0 0 1];
 %      y = util.get_line_points(l(1:2),e,x);
 %      plot(x,y);
 %      plot(a(1,i), a(2,i),'og');
-%      plot(b(1,i), b(2,i),'ob');    
+%      plot(b(1,i), b(2,i),'ob');
 % end
-% 
+%
 % plot(e(1),e(2),'*r', 'DisplayName', 'estimated epipole');
 % plot(e_gt(1), e_gt(2), '*g', 'DisplayName', 'gt epipole');
 % legend show;
@@ -91,8 +117,6 @@ T = [R t; 0 0 0 1];
 % save_dbg(fullfile(OUT_DIR, tempname));
 % close;
 end
-
-
 
 function val = objective1(x1,x2,F,h)
 % symmetric transfer error

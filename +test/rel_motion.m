@@ -108,7 +108,7 @@ for i=1:N
 
     n = n+1;
     % R as above, t by minimizing reprojection errors of 3d points
-    t = estimation.trans_X(K,R,param.base,X,x2,x2r,-R_gt'*t_gt);
+    t = estimation.trans_X(K,R,param.base,X,x2,x2r);
     e(:,i,n) = util.h2e(K*t);
     r(:,i,n) = reshape(R,[9 1]);
     
@@ -128,7 +128,7 @@ for i=1:N
 
     n = n+1;
     % R as above, t by minimizing reprojection errors of 3d points
-    t = estimation.trans_X(K,R,param.base,X,x2,x2r,-R_gt'*t_gt);
+    t = estimation.trans_X(K,R,param.base,X,x2,x2r);
     e(:,i,n) = util.h2e(K*t);
     r(:,i,n) = reshape(R,[9 1]);
 end

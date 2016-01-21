@@ -17,7 +17,7 @@ options = optimset( optimset('lsqnonlin') ,...
 t = t_opt/norm(t_opt);
 end
 
-function val = objective(K,R,base,Xp,xl,xr,t)
+function res = objective(K,R,base,Xp,xl,xr,t)
 
 R = R';
 t = -R*t;
@@ -28,6 +28,12 @@ P2 = K*[R' -R'*(t+[base;0;0])];
 xlp= util.h2e(P1*util.e2h(Xp));
 xrp= util.h2e(P2*util.e2h(Xp));
 
-val = sum((xlp-xl).*(xlp-xl)+(xrp-xr).*(xrp-xr),1);
+res = sum((xlp-xl).*(xlp-xl)+(xrp-xr).*(xrp-xr),1);
+
+if 0
+% reweight
+weights = exp(-3*abs(res)/max(abs(res)));
+res = res.*weights;
+end
 
 end

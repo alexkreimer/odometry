@@ -31,6 +31,7 @@ poses2 = poses1;
 tracks = containers.Map('KeyType','uint64','ValueType','any');
 update_tracks(fullfile('/media/kreimer/my_drive/KITTI/dataset/tracks',sequence, sprintf('%06d.txt',begin-2)), tracks);
 
+missed = false(1,num_frames);
 for i = begin:num_frames
     fprintf('processing frame %d\n', i);
     
@@ -43,45 +44,86 @@ for i = begin:num_frames
     
     x1p = permute(coords2(1:2,2,:), [1 3 2]);
     x2p = permute(coords2(3:4,2,:), [1 3 2]);
-    [Xp,visible] = triangulate_chieral(x1p,x2p,param.P1,param.P2);
+    [Xp,visiblep] = util.triangulate_chieral(x1p,x2p,param.P1,param.P2);
     
     x1 = permute(coords2(1:2,1,:), [1 3 2]);
     x2 = permute(coords2(3:4,1,:), [1 3 2]);
     
-    [X,~] = triangulate_chieral(x1,x2,param.P1,param.P2);
+    [X,visible] = util.triangulate_chieral(x1,x2,param.P1,param.P2);
+
+    % use visibility constraint to filter wrong matches
+    visible = visible&visiblep;
+    x1  = x1(:,visible);
+    x2  = x2(:,visible);
+    x1p = x1p(:,visible);
+    x2p = x2p(:,visible);
+    X   = X(:,visible);
+    Xp  = Xp(:,visible);
     
-    Xp = Xp(:,visible);
-    X  = X(:,visible);
-    x1 = x1(:,visible);
-    x2 = x2(:,visible);
-    x1p= x1p(:,visible);
-    x2p= x2p(:,visible);
+%     h = figure;
+%     semilogy(X(3,:), x1(1,:)-x2(1,:),'.');
+%     close;
+%     continue;
+%     
+%     h = figure; ax = axes;
+%     distant = X(3,:)<1e2 & X(3,:)>1e1;
+%     matchedPoints1 = x1(:,distant)';
+%     matchedPoints2 = x2(:,distant)';
+%     showMatchedFeatures(i1,i2,matchedPoints1,matchedPoints2,'montage','Parent',ax);
+%     title(ax, 'Candidate point matches');
+%     legend(ax, 'Matched points 1','Matched points 2');
+%     savefig(h,sprintf('depths-%d.fig',i),'compact');
+%     close;    
+%     continue;
+%     
+%     h = figure;
+%     depths = sort(X(3,:));
+%     semilogy(depths);
+%     title(sprintf('frame %d.png',i));
+%     savefig(h,sprintf('depths-%d.fig',i),'compact');
+%     close;
 
     [a_ss, ~, ~, ~, ~] = estimation.ransac_minimize_reproj(Xp, [x1; x2], param);
     stats(i).ss.T = util.tr2mat(a_ss);
 
     %util.plot_triangles(i1,i2,i1p,i2p,x1(:,~visible),x2(:,~visible),x1p(:,~visible),x2p(:,~visible));
     %util.plot_triangles(i1,i2,i1p,i2p,x1(:,visible),x2(:,visible),x1p(:,visible),x2p(:,visible));
-   
-    [TF1,~] = estimation.rel_motion_F(K,x1p,x1);
-    [TF2,inliers] = estimation.rel_motion_F(K,x2p,x1);
+
+    % These methods estimate R by decomposing F and then estimate t
+    % separately
+    [TF1,F1,inliers] = estimation.rel_motion_F(K,x1p,x1);
+    [TF2,F2,inliers] = estimation.rel_motion_F(K,x2p,x1);
     TF = estimation.stereo_motion_triangulate(TF1,TF2,[param.base 0 0]');
-    stats(i).no_opt_F.T = TF1;
+    stats(i).F.T = TF;
     
     % keep this to use cross ratio later
-    stats(i).no_opt_F.T2 = TF2;
-    stats(i).no_opt_F.x1 = x2p(:,inliers);
-    stats(i).no_opt_F.x2 = x1(:,inliers);
+    stats(i).F.T2 = TF2;
+    stats(i).F.x1 = x2p(:,inliers);
+    stats(i).F.x2 = x1(:,inliers);
 
-    TH1 = estimation.rel_motion_H(K,x1p,x1,X(3,:),param.base);
-    TH2 = estimation.rel_motion_H(K,x2p,x1,X(3,:),param.base);
-    TH = estimation.stereo_motion_triangulate(TH1,TH2,[param.base 0 0]');
-    stats(i).no_opt_H.T = TH;
-
-    R = estimation.H_inf_nonlin(K,x1,x2,X(3,:),param.base,150,.01);
-    TX = estimation.trans_X(K,R,param.base,Xp,x1,x2);
-    stats(i).tx.T = TX;
+    R1 = TF1(1:3,1:3); H1 = K*R1/K;
+    t1 = estimation.trans_geom(K,H1,x1p,x1);
+    TFg1 = [R1 t1; 0 0 0 1];
+    R2 = TF2(1:3,1:3); H2 = K*R2/K;
+    t2 = estimation.trans_geom(K,H2,x2p,x1);
+    TFg2 = [R2 t2; 0 0 0 1];
+    TFg = estimation.stereo_motion_triangulate(TFg1,TFg2,[param.base 0 0]');
+    stats(i).Fg.T = TFg;
     
+    depth = X(3,:);
+    if sum(depth>50)>=10
+        TH1 = estimation.rel_motion_H(K,F1,[x1p x2p],[x1 x2],[X(3,:) X(3,:)],param.base);
+        TH2 = estimation.rel_motion_H(K,F2,x2p,x1,X(3,:),param.base);
+        TH = estimation.stereo_motion_triangulate(TH1,TH2,[param.base 0 0]');
+        stats(i).Hg.T = TH;
+    else
+        missed(i) = true;
+        stats(i).Hg.T = stats(i).ss.T;
+    end
+%     R = TH1(1:3,1:3);
+%     t = estimation.trans_X(K,R,param.base,Xp,x1,x2);
+%     stats(i).HX.T = [R t; 0 0 0 1];
+
     % refinement
     if 0
         if i>3

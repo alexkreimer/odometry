@@ -60,7 +60,7 @@ for i=1:size(s,3)
     
     % majority vote.  their might be some outliers
     n = sum(inliers);
-    fprintf('total points %d, inliers %d\n', length(x), n);
+%     fprintf('total points %d, inliers %d\n', length(x), n);
     if n>max_inliers
         T = s(:,:,i);
         max_inliers = n;

@@ -1,4 +1,4 @@
-function [T, inliers,F] = rel_motion_F(K,x1,x2)
+function [T,F,inliers] = rel_motion_F(K,x1,x2)
 
 [F_est, T, ~, inliersF] = estimation.estimateF(x1, x2, K, 2, 'tangent');
 

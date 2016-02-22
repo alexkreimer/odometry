@@ -1,16 +1,26 @@
-function evaluate_odometry(sequence)
+function evaluate_odometry(sequence,res,algs)
 close all;
 
-DATA_ROOT  = '/media/kreimer/my_drive/KITTI/';
+DATA_ROOT  = '/home/kreimer/KITTI/';
 
-info.gt.poses = util.read_poses(fullfile(DATA_ROOT, 'dataset', 'poses', [sequence, '.txt']));
-info.ss.poses = util.read_poses(fullfile(DATA_ROOT, 'results', 'ss', 'data', [sequence, '.txt']));
-info.no_opt_H.poses = util.read_poses(fullfile(DATA_ROOT, 'results', 'no_opt_H', 'data', [sequence, '.txt']));
-info.no_opt_F.poses = util.read_poses(fullfile(DATA_ROOT, 'results', 'no_opt_F', 'data', [sequence, '.txt']));
-info.tx.poses = util.read_poses(fullfile(DATA_ROOT, 'results', 'tx', 'data', [sequence, '.txt']));
+info.gt.poses = util.read_poses(fullfile(DATA_ROOT, 'dataset', 'poses', [sequence, '.txt']));    
+
+for j = 1:length(res)
+    for i = 1:length(algs)
+        alg = algs{i};
+        field = [res{j},'_',algs{i}];
+        info.(field).poses = util.read_poses(fullfile(DATA_ROOT, res{j}, alg, 'data', [sequence, '.txt']));
+    end
+end
 
 fields = fieldnames(info);
 num_alg= length(fields);
+
+display = cell(1,length(fields));
+for i = 1:length(fields)
+    display{i} = strrep(fields{i},'_',' ');
+end
+
 num_frames = inf;
 for i = 1:num_alg
     % there may be a different number of elements in each poses array
@@ -22,32 +32,34 @@ for i = 1:num_alg
     end
 end
 
-figure;
-m=2;
-n=2;
-
-subplot(m,n,1); hold on; title('from-the top path view');
+figure; hold on; title('from-the top path view');
+set(gca, 'LineStyleOrder', {'-', ':', '--', '-.'}); % different line styles
+% Call hold so that the first plot doesn't affect the properties you just set
+hold all
 for i=1:num_alg
     field = fields{i};
     poses = info.(field).poses(:,:,1:num_frames);
     x = poses(1,4,:);
     z = poses(3,4,:);
-    plot(x(:),z(:),'DisplayName',field);
+    plot(x(:),z(:),'DisplayName',display{i});
 end
-legend(gca,'show'); axis equal;
+clickableLegend(display);
+%legend(gca,'show'); 
+axis equal;
 
-subplot(m,n,2);
+figure;
 hold on; title('trajectory distances');
 for i=1:num_alg
     field = fields{i};
-    plot(info.(field).dist(1:num_frames),'DisplayName',field);
+    plot(info.(field).dist(1:num_frames),'DisplayName',display{i});
 end
-legend(gca,'show');
+clickableLegend(display);
+%legend(gca,'show');
 
-lengths = [100,200,300,400,500,600,700,800]';
-lengths = [10,20,30,40,50 60,70,80];
-lengths = [1,2,3];
-step_size = 1;
+lengths = [100,200,300,400,500,600,700,800];
+%lengths = [10,20,30,40,50 60,70,80];
+%lengths = [1,2,3];
+step_size = 10;
 
 rotation_errors = zeros(num_alg,length(lengths));
 translation_errors = zeros(num_alg,length(lengths));
@@ -84,22 +96,35 @@ for l = 1:length(lengths)
 end
 
 rotation_errors = rotation_errors./len_count;
+rotation_errors = rotation_errors./repmat(lengths,[num_alg 1]);
 translation_errors = translation_errors./len_count;
-translation_errors = translation_errors./repmat(lengths,[num_alg 1]);
+translation_errors = 100*translation_errors./repmat(lengths,[num_alg 1]);
 
-subplot(m,n,3); hold on; title('rotation error');
+
+figure; hold on; title('rotation error');
+set(gca, 'LineStyleOrder', {'-', ':', '--', '-.'}); % different line styles
+% Call hold so that the first plot doesn't affect the properties you just set
+hold all
+
 for k = 1:num_alg
     field = fields{k};
     plot(lengths,rotation_errors(k,:), 'DisplayName', [strrep(field,'_',' '),' r error']);
 end
+ylabel('deg/m');
 legend(gca,'show');
+clickableLegend(display);
 
-subplot(m,n,4); hold on; title('translation error');
+figure; hold on; title('translation error');
+set(gca, 'LineStyleOrder', {'-', ':', '--', '-.'}); % different line styles
+% Call hold so that the first plot doesn't affect the properties you just set
+hold all
 for k = 1:num_alg
     field = fields{k};
     plot(lengths, translation_errors(k,:), 'DisplayName', [strrep(field,'_',' '),' t error']);
 end
-legend(gca,'show');
+ylabel('%');
+clickableLegend(display);
+%legend(gca,'show');
 end
 
 function last_frame = get_last_frame_for_dist(dist, first_frame, len)

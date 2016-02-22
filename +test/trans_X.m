@@ -1,4 +1,4 @@
-function r_err_avg = H_inf(num_pts, z_max, z_min)
+function trans_X(num_pts, z_max, z_min)
 
 num_frames = 2;
 K = [718.8560,  0,      607.1928;
@@ -41,8 +41,6 @@ e_gt = nan(2,num_frames-1);
 % generate camera motion
 R      = rotx(.2*rand)*roty(.2*rand);
 t      = [.5*rand .5*rand .5+rand]';
-t      = t/norm(t);
-t      = [0 0 0]';
 %R = Id; t = [0 0 1]';
 dt     = [R t; 0 0 0 1];
 
@@ -82,14 +80,10 @@ for i=1:N
     
     plot([x1(1,:); x2(1,:)], [x1(2,:); x2(2,:)]);
     
-    R1 = R';
-    t1 = -R'*t;
-    F = K'\util.skew(t1)*R1/K;
-    R_est = estimation.H_inf_nonlin(K,F,x1, x2, R1);
-    
-    delta = R_est\R;
-    pose_error = [delta zeros(3,1); 0 0 0 1];
-    r_err(i) = util.rot_error(pose_error);
+    Xp = X;
+    xl = x(3:4, 1:num_pts);
+    xr = x(3:4, num_pts+1:end);
+    t = estimation.trans_X(K,R',baseline(1),Xp,xl,xr,-R'*t);
 end
 
 subplot(212); hold on; title('rotation error');

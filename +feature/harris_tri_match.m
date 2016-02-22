@@ -1,4 +1,4 @@
-function harris_tri_match(DATASET_DIR, sequences, sha)
+function harris_tri_match(ROOT_DIR, sequences, sha)
 
 % * read image sequence
 % * detect harris corners
@@ -24,11 +24,11 @@ track_param.show_debug = 0;
     
 for seq_num = 1:length(sequences)
     sequence  = sequences{seq_num};
-    image_dir = fullfile(DATASET_DIR, 'sequences', sequence);
+    image_dir = fullfile(ROOT_DIR,'dataset','sequences', sequence);
     if nargin < 3
-        out_dir = fullfile(DATASET_DIR, 'tracks', sequence);
+        out_dir = fullfile(ROOT_DIR, 'tracks', sequence);
     else
-        out_dir = fullfile(DATASET_DIR, 'tracks', sha, sequence);
+        out_dir = fullfile(ROOT_DIR, 'tracks', sha, sequence);
     end
     
     if exist(out_dir, 'dir')

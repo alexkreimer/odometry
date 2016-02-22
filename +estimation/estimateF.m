@@ -1,7 +1,7 @@
-function [F, T, E, inliers, residual, F0] = estimateF(x1, x2, K, thresh, ref)
+function [F,T,E,inliers,residual,success,F0] = estimateF(x1,x2,K,thresh,ref)
 
 if nargin < 5
-    ref = 'tangent';
+    ref = 'vtheta';
 end
 
 if nargin == 3
@@ -21,9 +21,11 @@ x2 = util.e2h(x2(:,inliers));
 % output
 F_lin = F;
 E_lin = K'*F*K;
-T_lin = [util.decompose_essential(E_lin, K, [x1;x2]); 0 0 0 1];
-
-residual_lin = estimation.sampsonF(F_lin,x1,x2);
+[T_lin,success] = util.decompose_essential(E_lin, K, [x1;x2]);
+if ~success
+    warning('decompsition of the Essential failed');
+end
+T_lin = [T_lin; 0 0 0 1];
 
 if nargout > 5
     F0 = F_lin;
@@ -32,6 +34,7 @@ end
 if strcmp(ref, 'none')
     T = T_lin;
     if nargout > 4
+        residual_lin = estimation.sampsonF(F_lin,x1,x2);        
         residual = residual_lin;
         if nargout > 5
             F0 = F_lin;
@@ -71,7 +74,7 @@ if strcmp(ref,'vtheta') || strcmp(ref,'all')
     if strcmp(ref,'all')
         j=2;
     end
-    c0  = vtheta_init_params(F_lin,K,x1,x2);
+    c0  = vtheta_init_params(T_lin);
     fun = @(c) vtheta_sampson(c, K, x1, x2);
     [c,resnorm(j),residual(:,j),exitflag] = lsqnonlin(fun, c0, [], [], options);
     if exitflag < 1
@@ -81,6 +84,7 @@ if strcmp(ref,'vtheta') || strcmp(ref,'all')
     else
         [F(:,:,j),E(:,:,j),T(:,:,j)] = vtheta_param2F(c,K);
     end
+    inliers = residual(:,j)<2;
 end
 
 if strcmp(ref, 'tangent') || strcmp(ref, 'all')
@@ -189,9 +193,7 @@ function val = vtheta_sampson(c,K,x1,x2)
     val = estimation.sampsonF(F,x1,x2);
 end
 
-function c = vtheta_init_params(F,K,x1,x2)
-    E = K'*F*K;
-    T = util.decompose_essential(E, K, [x1;x2]);
+function c = vtheta_init_params(T)
     R = T(1:3,1:3);
     t = T(1:3,4);
     q = quaternion.rotationmatrix(R);

@@ -17,6 +17,168 @@
 
 \begin{enumerate}
 
+  {\Large \item Are we ready for autonomous driving?  the kitti vision
+    benchmark suite}~\cite{geiger2012we}
+
+  This work presents the KITTI data-set.  The authors claim that at
+  the moment when the work is published computer vision systems are
+  rather rare in practical robotic systems.  They take a step towards
+  a wider use of vision in such systems by publishing a demanding data
+  set that mimics real world requirements.  The dataset includes data
+  from four high resolution video cameras, a Velodyne scanner and
+  state-of-the-art localization system.  The benchmark includes 389
+  stereo and optical flow image pairs, 39.2 km of visual odometry
+  data, and more than 200k 3D object annotations.  The paper describes
+  the setup, data-set organization and algorithm evaluation tools.
+
+  {\Large \item Stereoscan: Dense 3d reconstruction in
+    real-time}~\cite{geiger2011stereoscan}
+  
+  This method solves visual odometry.  The authors use custom corner
+  detector (primarily for run-time efficiency).  Which are matched
+  between pairs of stereo images as well as between pairs of
+  consecutive images.  Outliers are pruned by imposing rigidity
+  constraint on a scene using Delaunay triangulation and also using
+  circle match heuristic.  Relative orientation is solved using
+  non-linear Levenberg-Marquard reprojection minimization procedure
+  wrapped into RANSAC.  Despite the fact that LM may fall into local
+  minima this method shows good results on the
+  KITTI~\cite{geiger2012we} dataset.
+
+  {\Large \item Visual odometry by multi-frame feature
+    integration}~\cite{badino2013visual}
+
+  This is an incremental work over the method proposed
+  in~\cite{geiger2011stereoscan}.  The improvement proposed in this
+  paper is a method to take into account the location of the feature
+  in more than just a pair of consecutive stereo frames.  Basically,
+  the authors compute an average 3D location of the feature for a
+  sequence of frames.  When current relative orientation is solved by
+  re-projection error minimization, projections of such averaged 3D
+  points are taken into account.  This method showed improved results
+  on KITTI compared to~\cite{geiger2011stereoscan}.
+
+  {\Large \item Efficient computation of relative pose for multi-camera systems}~\cite{kneip2014efficient}
+
+  This work generalizes the constraints presented
+  in~\cite{kneip2012finding} to the generalized camera model presented
+  in ~\cite{pless2003using}.  The problem is formulated as minimal
+  eigenvalue minimization problem and solved using Levenberg-Marquardt
+  optimization algorithm.
+
+
+  {\Large \item Direct optimization of frame-to-frame
+    rotation}~\cite{kneip2013direct}
+
+  This work is a follow-up for~\cite{kneip2012finding}.  They use the
+  same constraint to solve relative orientation, but propose a
+  different solution. The authors formulate the problem as a minimal
+  eigen-value minimization scheme. The solutions proposed in this work
+  is a non-linear optimization scheme based on Levenberg-Marquardt
+  algorithm and a branch-and-bound algorithm.  Both solution compare
+  favorably to the state of the art on synthetic data.
+
+  {\Large \item Finding the exact rotation between two images
+    independently of the translation}~\cite{kneip2012finding}
+  
+  The authors propose constraints on the motion of the image features
+  for pure rotation/translation of the camera.  They state that for
+  pure translation the normals to the epipolar planes are co-planar,
+  while for pure rotation the feature displacement vectors must be
+  co-planar.  They also claim that the rotation (translation) is
+  correctly estimated if the remaining motion adheres to the pure
+  translation (rotation) constraint.  The above constraints allow the
+  authors to compose systems of polynomial equations that are solved
+  with algebraic geometry methods.
+  
+  {\Large \item Analysis and solutions of the three point perspective pose estimation problem}~\cite{haralick1991analysis}
+
+  Three point perspective pose estimation problem refers to finding
+  the pose of the camera relative to a known 3D triangle given the
+  projections of its vertices on the camera plane.  In our context
+  this problem arises as an initial step of the odometry algorithms.
+  The authors evaluate a number of methods to solve the problem mainly
+  from numerical stability perspective.  All algorithms have
+  singularity points, but their probability is rather low. The paper
+  shows that the order of substitutions that the solution undertakes
+  may influence result significantly.  Numerical stability analysis is
+  given for 6 different solutions.
+
+  {\Large \item An Efficient Minimal Solution for Multi-Camera
+    Motion}~\cite{67}
+
+  The authors propose an efficient method for estimating the motion of
+  a multi-camera rig from a minimal set of feature correspondences.
+  The authors develop a first order approximation to the generalized
+  epipolar constraint developed in~\cite{grossberg2001general}.  They
+  propose and evaluate two solution methods to the posed problem: a
+  method based on the Grobner basis and another methods based on the
+  polynomial root finding using Sturm sequences.
+
+  {\Large \item Least-squares fitting of two 3-D point
+    sets}~\cite{arun1987least}
+
+  This paper deals with absolute orientation problem.  It proposes a
+  solution based on SVD which may be an alternative
+  to~\cite{horn1987closed}.  The authors do not compare numerical
+  stability of both solution, but do provide computation time
+  comparison.  For minimal case (3pt) quaternion based solution is
+  faster, for larger point sets SVD is faster.
+
+  {\Large \item Closed-form solution of absolute orientation using
+    unit quaternions}~\cite{horn1987closed}
+  
+  Similar to three point perspective pose estimation problem discussed
+  in ~\cite{haralick1991analysis} absolute orientation arises as
+  initial step in some of the visual odometry algorithms.  Absolute
+  orientation problem is to determine relative orientation of the
+  coordinate systems, given the coordinates of the same 3D points in
+  each one of them.  This paper presents a closed form solution to
+  this problem based on unit quaternions.
+
+  {\Large \item Using many cameras as one}~\cite{pless2003using}
+  
+  The authors evaluate different camera configurations for camera
+  ego-motion estimation.  The tool used to analyze different camera
+  system configurations is Fisher Information Matrix.  The Fisher
+  Information Matrix is a powerful analysis technique that can apply
+  to any problem which involves searching for a parameter set that
+  minimizes an error function.  The author use Plucker line
+  coordinates and a unified camera
+  framework~\cite{grossberg2001general} to view a multi-camera system
+  as a single camera.  They derive a generalized epipolar constraint
+  and generalized epipolar flow constraint and then analyze their
+  sensitivity to noise using Fisher Information Matrix.
+
+  {\Large \item A General Imaging Model and a Method for Finding its
+    Parameters}~\cite{grossberg2001general}
+
+  Linear perspective camera model turned to be a defacto standard in
+  computer vision.  The authors come to conclusion that there are a
+  number of imaging systems/sensors that were developed that do not
+  fit the perspective camera model (e.g. cathadioptric, dioptric
+  wide-angle, compound camera systems).  The authors propose a
+  generalized camera models that is based on virtual imaging elements
+  called raxels (ray pixels).  Ray pixels sample the plenoptic
+  function at some location in certain direction.  The image surface
+  is defined as caustic, a special case of a ray surface where the
+  direction of the ray $q$ is a function of the location $p$ and the
+  incoming rays are tangent to the surface.  The authors propose
+  methods to compute the parameters of the generalized imaging system.
+
+  {\Large \item Ego-motion and omni-directional
+    cameras}~\cite{gluckman1998ego}
+
+  The authors combine wide-angle imaging systems with ego-motion
+  algorithms designed for a usual perspective projection camera.
+  Wide-angle imaging systems have advantages over a regular ones
+  (e.g., it is possible to disambiguate rotation and translation
+  effects). They show, on one hand, how to map wide-angle imaging
+  system motion onto the unit sphere (i.e. use spherical projection
+  model). On the other hand, they show how to adapt available
+  perspective projections ego-motion estimation algorithms for the
+  spherical motion field.
+
   {\Large \item Stereo tracking and three-point/one-point algorithms-a robust approach in visual odometry}~\cite{ni2006stereo}
 
   The authors use Harris~\cite{harris1988combined} features and KLT
@@ -175,6 +337,29 @@
   statistics (first and second moments of the edge distributions, mean
   edge orientations, densities of lines).
 
+  {\Large \item Beyond RANSAC: user independent robust
+    regression}~\cite{subbarao2006beyond}
+
+  This paper deals with shortcomings of RANSAC, e.g., user-set inlier
+  threshold, which is hard to guess a-priory.  The authors formulate
+  usual regression problem in a projection pursuit framework (e.g.,
+  they derive a projection based M-estimator) for heteroscedastic
+  (e.g., such that has different variability in it) data.  The
+  advantage for such formulation is that there exist rules for
+  bandwidth selection for such estimators which are purely data
+  driven.
+
+
+  {\Large \item Error modeling in stereo navigation}~\cite{matthies1987error}
+  
+  This work proposes a method to model invariance in 3D point
+  triangulation.  They propose a way to estimate an error in a
+  triangulated point given an assumption of an error in image features
+  (basically, using Gauss-Markov error propagation theorem).  The
+  authors also propose a way to update landmark locations using the
+  estimated error information.  Using synthetic benchmarks they show
+  that their method produces better results.
+
   {\Large \item Visual Homing: Surfing on the Epipoles}~\cite{basri1999visual}
 
   They propose a solution for visual homing.  Using this method a
@@ -232,6 +417,29 @@
   representation.  The conclusion is that this representation performs
   better for rotations, for transnational motion both method are
   approximately equal.
+
+  {\Large \item A simple and efficient rectification method for
+    general motion}~\cite{pollefeys1999simple}
+
+  This paper proposes a rectification method.  It addresses issues
+  present in most other rectification methods that sometimes produce
+  very large images and sometimes can not rectify at all (usually when
+  the epipoles are in the images).  This method is based on a polar
+  parameterization of the images around the epipole.  No pixels are
+  lost and images of minimal size are produced.  One of the downsides
+  of this method is that new cameras (rectified) are not available.
+
+
+  {\Large \item On measuring the accuracy of SLAM
+    algorithms}~\cite{kummerle2009measuring}
+
+  This paper attempts to create an objective benchmark to measure the
+  accuracy of SLAM algorithms.  The metric that this work proposes
+  uses only relative poses and does not rely on a global reference
+  frame (e.g. benchmark dependence on time) . This work is a basis for
+  KITTI~\cite{geiger2012we} benchmarks.  It allows to compare methods
+  that use different estimation techniques and different sensor
+  moralities.
 
 \end{enumerate}
 

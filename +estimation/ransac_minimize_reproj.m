@@ -1,6 +1,6 @@
-function [best_tr, best_inliers, tr0, predict, rms] = ransac_minimize_reproj(X, observe, param)
+function [best_tr, best_inliers, residual] = ransac_minimize_reproj(X, observe, param)
 %% RANSAC & LM to estimate rigid motion parameters
-% _X_ is 3d point cloud, s.t. size(X) = [3 N]
+% X is 3d point cloud, s.t. size(X) = [3 N]
 %
 % observe are projections of X in a new frame (i.e., after camera
 % rotation/translation).  The function assumes that
@@ -18,13 +18,11 @@ function [best_tr, best_inliers, tr0, predict, rms] = ransac_minimize_reproj(X, 
 % image plane
 % rms is a reprojection error rms
 
-status = false;
-best_tr = zeros(6,1);
-tr0 = [];
-predict = [];
-rms = 0;
+status       = false;
+best_tr      = zeros(6,1);
+predict      = [];
 best_inliers = [];
-tr0 = nan(6,1);
+
 for j=1:param.ransac_iter
     active = datasample(1:size(X,2),param.model_size,'Replace',false);
     tr = zeros(6,1);
@@ -82,15 +80,7 @@ for i=1:50
     end
     best_tr = best_tr+p_gn;
 end
-
-inliers = compute_inliers(residual, param.inlier_thresh, best_inliers);
-
-predict = reshape(predict, [4 numel(best_inliers)]);
-rms = sqrt(sum(residual.*residual)/(4*numel(best_inliers)));
-
-err = util.colnorm(predict-observe(:,best_inliers));
-% histogram(err);
-% title('reprojection error distribution');
+residual = predict-observe(:,best_inliers);
 end
 
 function [J,residual,predict] = computeJ(X,tr,observe,param,active)

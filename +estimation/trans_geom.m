@@ -24,7 +24,6 @@ thr = 2;
 max_support = 0;
 k = 0; kk = 0;
 while k<5
-
     sample = randsample(N,2);
     p1 = a(:,sample(1));
     p2 = b(:,sample(1));

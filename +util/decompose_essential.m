@@ -1,4 +1,4 @@
-function T = decompose_essential(E, K, x)
+function [T,success] = decompose_essential(E, K, x)
 % Decompose essential matrix E and resolve the twisted pair ambiguity by
 % veryfing the depth of the reconstructed points
 %
@@ -14,6 +14,7 @@ function T = decompose_essential(E, K, x)
 % rotz(pi/2)
 W = [0,-1,0;+1,0,0;0,0,1];
 Z = [0,+1,0;-1,0,0;0,0,0];
+
 t = util.vex(U*Z*U');
 t = t/norm(t);
 
@@ -34,8 +35,11 @@ s(:,:,3) = [R1 -t];
 s(:,:,4) = [R2 -t];
 
 num_pts = size(x,2);
-max_inliers = 0;
-% reconstruct x
+
+max_inliers = -1;
+
+% there are some (awkward) cases, when all points are invisible in all
+% cameras (probably because ALL results are junk)
 for i=1:size(s,3)
     P1 = K*[eye(3) zeros(3,1)];
     P2 = K*s(:,:,i);
@@ -60,10 +64,15 @@ for i=1:size(s,3)
     
     % majority vote.  their might be some outliers
     n = sum(inliers);
-%     fprintf('total points %d, inliers %d\n', length(x), n);
+    %fprintf('total points %d, inliers %d\n', length(x), n);
     if n>max_inliers
         T = s(:,:,i);
         max_inliers = n;
     end
 end
+
+if nargout>1
+    success = max_inliers>0;
+end
+
 end

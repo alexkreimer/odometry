@@ -57,6 +57,61 @@ advantage of epipolar geometry based methods.
 
 \section{Image Features}
 
+\section{Image Point Mapping Related to Camera Motion}
+
+Suppose the camera matrices are those of a calibrated stereo rig with
+the world origin at the first camera
+
+\[
+\mathrm{P = K[I\ |\ 0]\quad P'=K'[R\ |\ \mathbf{t}]}
+\]
+
+Consider projections of a 3D point $(X,Y,Z,1)^T$ into the image planes of both views:
+
+\[
+\mathrm{\mathbf{x} = P\mathbf{X} \quad \mathbf{x}' = P'\mathbf{X}}
+\]
+
+If the image point is normalized as $\mathbf{x} = (x,y,1)^T$ then
+\[
+\mathbf{x}Z = \mathrm{P\mathbf{X} = K[I\ |\ 0]\mathbf{X} = K}(X,Y,Z)^T
+\]
+
+It follows that $(X,Y,Z)^T = \mathrm{K^{-1}}\mathbf{x}Z$, and:
+\begin{align*}
+  \mathbf{x}' &= \mathrm{K'[R\ |\ \mathbf{t}]}(X,Y,Z,1)^T \\
+  &= \mathrm{K'R}(X,Y,Z)^T + \mathrm{K'\mathbf{t}}\\
+  &= \mathrm{K'RK^{-1}}\mathbf{x}Z + \mathrm{K'\mathbf{t}}\\
+\end{align*}
+
+Now we divide both sides by $Z$ to obtain the mapping of an image point $\mathbf{x}$ to image point $\mathbf{x}'$
+\[
+\mathbf{x}' = \mathrm{K'RK^{-1}}\mathbf{x} + \mathrm{K'}\mathbf{t}/Z = \mathrm{H}\mathbf{x}+ \mathrm{K'}\mathbf{t}/Z
+\]
+
+If $\mathrm{R = I}$ (e.g. pure translation) the point $\mathbf{x}$ will undergo a motion along a corresponding epipolar line:
+\[
+\mathbf{x}' = \mathbf{x}+ \mathrm{K'}\mathbf{t}/Z = \mathbf{e}'/Z
+\]
+
+If $\mathbf{t} = \mathbf{0}$ the motion of the point may be represented by a homology:
+\[
+\mathbf{x}' = \mathrm{H}\mathbf{x}
+\]
+
+\begin{figure}[h]
+\includegraphics[scale=.5]{general_camera_motion}
+\centering
+\caption{General camera motion may be viewed as a two step process}
+\end{figure}
+
+In a general case the mapping of an image point $\mathbf{x}$ into $\mathbf{x}'$ may be viewed as a two step process: transformation by a homology (a specialization of homography which has two equal eigenvalues) $\mathrm{H}$ which simulates a pure rotational motion of the camera followed by an offset along the epipolar line which simulates a pure translational motion of the camera.
+
+\section{Estimation of Camera Rotation}
+We would like to exploit the fact that for $Z \gg \mathbf{\norm{t}}_2$
+\[
+\mathbf{x}' \approx \mathrm{H}\mathbf{x}
+\]
 \section{Monocular motion estimation}\label{sec:mono_odo}
 Let $C_1$ and $C_2$ be the two camera frames.  $R$ describes the
 orientation of $C_1$ in as seen from $C_2$. $t_1$ is a direction (line

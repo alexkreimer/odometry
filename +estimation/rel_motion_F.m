@@ -1,7 +1,6 @@
-function [T,F,inliers] = rel_motion_F(K,x1,x2)
+function [T,F,inliers,residual,success] = rel_motion_F(K,x1,x2)
 
-[F_est, T, ~, inliersF] = estimation.estimateF(x1, x2, K, 2, 'tangent');
-
+[F_est,T,~,inliersF,residual,success,~] = estimation.estimateF(x1,x2,K,2);
 % WA - we only want negative z here
 if T(3,4)>0
     T = inv(T);    

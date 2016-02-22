@@ -1,20 +1,27 @@
-function run_sequence(sequence, begin, num_frames)
-
+function run_sequence(sequence, varargin)
 close all
 dbstop if error;
 
-DATA_ROOT  = '/media/kreimer/my_drive/KITTI/';
+DATA_ROOT  = '/home/kreimer/KITTI/';
 KITTI_HOME = fullfile(DATA_ROOT, 'dataset');
-RESULT_DIR = fullfile(DATA_ROOT, 'results');
-DBG_DIR    = fullfile(DATA_ROOT, 'debug');
 
 image_dir  = fullfile(KITTI_HOME, 'sequences', sequence);
 poses_file = fullfile(KITTI_HOME, 'poses', [sequence, '.txt']);
 
-if nargin<2
-    begin = 2;
-    num_frames = 10;
-end
+D = dir(fullfile(image_dir, 'image_0','*.png'));
+default_last = length(D(not([D.isdir])))-1;
+
+p = inputParser;
+p.addOptional('first',2,@isnumeric);
+p.addOptional('last',default_last,@isnumeric);
+p.addOptional('depth_thr',100,@isnumeric);
+p.addOptional('inlier_thr',1,@isnumeric);
+p.addOptional('ransac_iter',2,@isnumeric);
+
+p.KeepUnmatched = true;
+parse(p,varargin{:});
+
+RESULT_DIR = fullfile(DATA_ROOT, sprintf('results_%d_%d_%d',p.Results.depth_thr,p.Results.inlier_thr,p.Results.ransac_iter));
 
 % setup camera parameters (KITTI)
 [P0, P1] = util.kitti_read_calib(image_dir);
@@ -24,21 +31,21 @@ K = param.K;
 
 gt = process_gt(poses_gt);
 
-poses1 = nan(4, 4, num_frames);
+poses1 = nan(4, 4, p.Results.last);
 poses1(:,:,1) = inv([eye(3) zeros(3,1); 0 0 0 1]);
 poses2 = poses1;
 
 tracks = containers.Map('KeyType','uint64','ValueType','any');
-update_tracks(fullfile('/media/kreimer/my_drive/KITTI/dataset/tracks',sequence, sprintf('%06d.txt',begin-2)), tracks);
+update_tracks(fullfile('/home/kreimer/KITTI/tracks',sequence, sprintf('%06d.txt',p.Results.first-2)), tracks);
 
-missed = false(1,num_frames);
-for i = begin:num_frames
-    fprintf('processing frame %d\n', i);
+missed = false(1,p.Results.last);
+for i = p.Results.first:p.Results.last
+    fprintf('processing frame %d of %d\n', i, p.Results.last);
     
     [i1, i2] = read_images(image_dir, i);
     [i1p,i2p]= read_images(image_dir, i-1);
-
-    update_tracks(fullfile('/media/kreimer/my_drive/KITTI/dataset/tracks',sequence,sprintf('%06d.txt',i-1)), tracks);
+    
+    update_tracks(fullfile('/home/kreimer/KITTI/tracks',sequence,sprintf('%06d.txt',i-1)), tracks);
     
     coords2 = get_track_coords(tracks,2);
     
@@ -48,9 +55,15 @@ for i = begin:num_frames
     
     x1 = permute(coords2(1:2,1,:), [1 3 2]);
     x2 = permute(coords2(3:4,1,:), [1 3 2]);
-    
     [X,visible] = util.triangulate_chieral(x1,x2,param.P1,param.P2);
 
+    directory = fullfile(DATA_ROOT,'data',sequence);
+    filename = fullfile(directory, [sprintf('%06d',i), '.mat']);
+    if ~exist(directory,'dir')
+        command = ['mkdir -p ', fullfile(directory)];
+        system(command);
+    end    
+    save(filename,'x1','x2','x1p','x2p','X','Xp','visible','visiblep');
     % use visibility constraint to filter wrong matches
     visible = visible&visiblep;
     x1  = x1(:,visible);
@@ -60,70 +73,67 @@ for i = begin:num_frames
     X   = X(:,visible);
     Xp  = Xp(:,visible);
     
-%     h = figure;
-%     semilogy(X(3,:), x1(1,:)-x2(1,:),'.');
-%     close;
-%     continue;
-%     
-%     h = figure; ax = axes;
-%     distant = X(3,:)<1e2 & X(3,:)>1e1;
-%     matchedPoints1 = x1(:,distant)';
-%     matchedPoints2 = x2(:,distant)';
-%     showMatchedFeatures(i1,i2,matchedPoints1,matchedPoints2,'montage','Parent',ax);
-%     title(ax, 'Candidate point matches');
-%     legend(ax, 'Matched points 1','Matched points 2');
-%     savefig(h,sprintf('depths-%d.fig',i),'compact');
-%     close;    
-%     continue;
-%     
-%     h = figure;
-%     depths = sort(X(3,:));
-%     semilogy(depths);
-%     title(sprintf('frame %d.png',i));
-%     savefig(h,sprintf('depths-%d.fig',i),'compact');
-%     close;
+    disp('original reprojection minimization')
+    tic;[a_ss, inliers,residual] = estimation.ransac_minimize_reproj(Xp, [x1; x2], param);toc;
+    stats(i).ss.T                = util.tr2mat(a_ss);
+    stats(i).ss.inliers          = {inliers};
+    stats(i).ss.residual         = {residual};
 
-    [a_ss, ~, ~, ~, ~] = estimation.ransac_minimize_reproj(Xp, [x1; x2], param);
-    stats(i).ss.T = util.tr2mat(a_ss);
-
-    %util.plot_triangles(i1,i2,i1p,i2p,x1(:,~visible),x2(:,~visible),x1p(:,~visible),x2p(:,~visible));
-    %util.plot_triangles(i1,i2,i1p,i2p,x1(:,visible),x2(:,visible),x1p(:,visible),x2p(:,visible));
-
+    %     disp('new reprojection minimization')
+    %     tic; pose = estimation.ransac_min_reproj(K,param.base,Xp,x1,x2); toc;
+    %     stats(i).ss1.T = pose;
+    
     % These methods estimate R by decomposing F and then estimate t
     % separately
-    [TF1,F1,inliers] = estimation.rel_motion_F(K,x1p,x1);
-    [TF2,F2,inliers] = estimation.rel_motion_F(K,x2p,x1);
-    TF = estimation.stereo_motion_triangulate(TF1,TF2,[param.base 0 0]');
-    stats(i).F.T = TF;
+%     disp('F estimation/decomposition');
+%     tic;
+%     [TF1,F1,inliers1,residual1,success1] = estimation.rel_motion_F(K,x1p,x1);
+%     [TF2,F2,inliers2,residual2,success2] = estimation.rel_motion_F(K,x2p,x1);
+%     TF = estimation.stereo_motion_triangulate(TF1,TF2,[param.base 0 0]');
+%     toc;
+%     stats(i).F.T        = TF;
+%     stats(i).F.inliers  = {inliers1,inliers2};
+%     stats(i).F.residual = {residual1,residual2};
+%     stats(i).F.success  = {success1,success2};
     
-    % keep this to use cross ratio later
-    stats(i).F.T2 = TF2;
-    stats(i).F.x1 = x2p(:,inliers);
-    stats(i).F.x2 = x1(:,inliers);
-
-    R1 = TF1(1:3,1:3); H1 = K*R1/K;
-    t1 = estimation.trans_geom(K,H1,x1p,x1);
-    TFg1 = [R1 t1; 0 0 0 1];
-    R2 = TF2(1:3,1:3); H2 = K*R2/K;
-    t2 = estimation.trans_geom(K,H2,x2p,x1);
-    TFg2 = [R2 t2; 0 0 0 1];
-    TFg = estimation.stereo_motion_triangulate(TFg1,TFg2,[param.base 0 0]');
-    stats(i).Fg.T = TFg;
-    
+    disp('H_inf estimation');
+    tic;
     depth = X(3,:);
     if sum(depth>50)>=10
-        TH1 = estimation.rel_motion_H(K,F1,[x1p x2p],[x1 x2],[X(3,:) X(3,:)],param.base);
-        TH2 = estimation.rel_motion_H(K,F2,x2p,x1,X(3,:),param.base);
+        T1 = stats(i).ss.T;
+        R = T1(1:3,1:3);
+        t1 = T1(1:3,4);
+        t2 = t1+R'*[param.base 0 0]';
+        F1 = K'\util.skew(t1)*R/K;
+        F2 = K'\util.skew(t2)*R/K;
+        [TH1,inliers1,residual1] = estimation.rel_motion_H(K,[x1p x2p],[x1 x2],...
+            [X(3,:) X(3,:)],param.base,'F',F1,'absRotInit',true,...
+            'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
+        [TH2,inliers2,residual2] = estimation.rel_motion_H(K,x2p,x1,X(3,:),param.base,'F',F2,'absRotInit',true,...
+            'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
         TH = estimation.stereo_motion_triangulate(TH1,TH2,[param.base 0 0]');
-        stats(i).Hg.T = TH;
+        stats(i).Hg.sucess   = true;
+        stats(i).Hg.T        = TH;
+        stats(i).Hg.inliers  = {inliers1,inliers2};
+        stats(i).Hg.residual = {residual1,residual2};
     else
-        missed(i) = true;
-        stats(i).Hg.T = stats(i).ss.T;
+        stats(i).Hg.T      = stats(i).ss.T;
+        stats(i).Hg.sucess = false;
     end
-%     R = TH1(1:3,1:3);
-%     t = estimation.trans_X(K,R,param.base,Xp,x1,x2);
-%     stats(i).HX.T = [R t; 0 0 0 1];
-
+    toc;
+    
+    stats(i).Hs.T        = stats(i).Hg.T;
+    stats(i).Hs.T(1:3,4) = stats(i).ss.T(1:3,4);
+    
+    disp('One point translation estimation');
+    R = stats(i).Hg.T(1:3,1:3);
+    tic;[t,residual,inliers] = estimation.ransac_minimize_reproj1(Xp,R,x1,x2,param);toc;
+    stats(i).HX.T = [R t; 0 0 0 1];    
+    stats(i).HX.inliers = inliers;
+    
+    st = stats(i);
+    save(filename,'st','-append');
+    
     % refinement
     if 0
         if i>3
@@ -187,29 +197,25 @@ for i = begin:num_frames
             end
         end
     end
-    
-end
-
-% convert all poses to be relative to the world origin and save
-fields = fieldnames(stats);
-for i=1:length(fields)
-    field = fields{i};
-    poses = nan(4, 4, num_frames);
-    poses(:,:,1) = [eye(3) zeros(3,1); 0 0 0 1];
-    for j=2:num_frames
-        TH = stats(j).(field).T;
-        poses(:,:,j) = poses(:,:,j-1)/TH;
+    % convert all poses to be relative to the world origin and save
+    fields = fieldnames(stats);
+    for ii=1:length(fields)
+        field = fields{ii};
+        poses = nan(4, 4, p.Results.last);
+        poses(:,:,1) = [eye(3) zeros(3,1); 0 0 0 1];
+        for j=2:i
+            TH = stats(j).(field).T;
+            poses(:,:,j) = poses(:,:,j-1)/TH;
+        end
+        directory = fullfile(RESULT_DIR, field);
+        filename = fullfile(directory, 'data', [sequence, '.txt']);
+        if ~exist(directory,'dir')
+            command = ['mkdir -p ', fullfile(directory, 'data')];
+            system(command);
+        end
+        util.savePoses(filename, poses);
     end
-    dir = fullfile(RESULT_DIR, field);
-    if exist(dir,'dir')
-        command = ['rm -fr ', dir];
-        system(command);
-    end
-    command = ['mkdir -p ', fullfile(dir, 'data')];
-    system(command);
-    util.savePoses(fullfile(dir, 'data', [sequence, '.txt']), poses);
 end
-
 end
 
 function plot_circles(px, x, i1, pi1, i2, pi2)

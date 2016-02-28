@@ -1,0 +1,103 @@
+% options are:
+% PhD, MSc (choose one)
+% beforeExam (to make the personal thanks invisible)
+\documentclass[MSc,beforeExam]{iitcsthesis}
+
+\usepackage{fontspec}
+\usepackage{etoolbox}
+\usepackage{polyglossia}
+\usepackage{bidi}
+
+\setdefaultlanguage{english}
+\setotherlanguage{hebrew}
+\newfontfamily\hebrewfont[Script=Hebrew]{Droid Sans Hebrew}
+
+% For some reason, the hebrew package clashes with the amsthm package. If you need a proof environment, you can uncomment the following:
+%\usepackage{amssymb} %Needed for \blacksquare. Take care not to add this package twice...
+%\newenvironment{proof}[1][Proof]{\par \textbf{#1.} }{\hspace{10pt}\hfill$\blacksquare$\par}
+\begin{document}
+
+\bibliographystyle{plain}
+
+\authorEnglish{Alex Kreimer}
+
+\titleEnglish{Infinite Odometry}
+
+\supervisorEnglish{The research thesis was done under the supervision
+of Prof./Dr.~(First Name) (Last Name) in the Computer Science Department.}
+
+\GregorianDateEnglish{October 2008}
+\JewishDateEnglish{Tishrei 5769}
+
+\personalThanksEnglish{Write thanks to professor and others}
+\financialThanksEnglish{The generous financial support of the Technion (and someone else if you got a scholarship) is gratefully acknowledged.}
+
+\maketitleEnglish
+
+% The English abstract should be 200-500 words long.
+\abstractEnglish In this work we revisit a problem of visual odometry
+(VO). VO is the process of estimating the egomotion of the camera by
+examining the changes that the motion induces on the images made by
+it. The approach we propose exploits scene structure typical for that
+seen by a moving car and is suitable for use in both monocular and
+stereo settings. We recover rotation and translation separately, thus
+dealing with two separate (smaller) problems. The rotation is
+estimated by means of infinite homography which benefits from
+additional data in stereo setting but may also be used in the
+monocular setting. We start with an initial estimate and then refine
+it using iterative procedure. After the rotation is compensated for
+the translation is found by means of 1-point algorithm in stereo
+setting and epipole computation for pure translational motion in
+monocular setting. We evaluate our algorithm on the
+KITTI~\cite{geiger2013vision} dataset.
+
+\abbreviationsAndNotationsEnglish
+
+\begin{tabular}{lcl}
+$VO$ & --- & Visual odometry\\
+$GPS$ & --- & Global Positioning System\\
+$IMU$ & --- & Inertial Navigation Unit\\
+
+\end{tabular}
+
+%Or, if your tables are long, ``\usepackage{longtable}'' at the beginning, and then  ``\begin{longtable}[l]{lcl} ... \end{longtable}''
+
+\chapter{Introduction}
+
+Recovery of the agent (vehicle, robot, etc.) motion is a basic
+building block for many higher-level tasks. Various methods may be
+used to recover this motion, e.g., wheel odometry, global positioning
+system (GPS), inertial measurement units (IMU), laser odometry and
+visual odometry. Contrary to wheel odometry, VO is not affected by
+wheel slip and usually provides a more accurate trajectory
+estimate. Contrary to GPS VO does not depend on satellite signal
+availability which may be a concern in urban canyons and other
+GPS-denied environments. All these makes VO a viable alternative to
+agent egomotion estimation. Of course, VO has demands of its own,
+e.g., sufficient illumination, image overlap, static scene with enough
+texture.
+
+\section{Background}
+
+\section{Our Approach}
+\subsection{Contributions}
+\section{Thesis Outline}
+
+\chapter{Related Work}
+
+
+\section{A section}
+
+Some stuff.
+
+\section*{Appendix}
+\addcontentsline{toc}{section}{Appendix}
+For some reason, you need to manually add stared sections to the the index file.
+
+\bibliography{thesis}{}
+
+\include{hebrewPart}
+
+% Actually, I found it much easier to have each chapter in a file of its own. Except for the Hebrew part, I put it all together in this example just to make things clear.
+
+\end{document}

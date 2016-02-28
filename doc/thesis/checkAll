@@ -1,0 +1,20 @@
+#!/bin/bash
+# Run the Aspell spell checking program on all tex files in current directory, in both English and Hebrew modes.
+# Written for Linux, may work in Windows through Cygwin...
+
+listfile=`mktemp`
+
+find . -maxdepth 1 -name "*.tex" > $listfile
+
+# check English
+for i in `cat $listfile`; do
+  aspell -c $i
+done
+
+# check Hebrew
+for i in `cat $listfile`; do
+  aspell -c $i -l he --encoding=cp1255
+done
+
+rm $listfile
+

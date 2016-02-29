@@ -3,12 +3,16 @@
 
 \documentclass[runningheads]{llncs}
 \usepackage{graphicx}
-\usepackage{amsmath,amssymb} % define this before the line numbering.
+\usepackage{mathtools,amssymb} % define this before the line numbering.
 \usepackage{ruler}
 \usepackage{color}
 \usepackage[width=122mm,left=12mm,paperwidth=146mm,height=193mm,top=12mm,paperheight=217mm]{geometry}
 \usepackage{etoolbox}
 \usepackage{smartdiagram}
+\usepackage{wrapfig}
+
+\DeclarePairedDelimiter{\abs}{\lvert}{\rvert}
+\DeclarePairedDelimiter{\norm}{\lVert}{\rVert}
 
 \begin{document}
 % \renewcommand\thelinenumber{\color[rgb]{0.2,0.5,0.8}\normalfont\sffamily\scriptsize\arabic{linenumber}\color[rgb]{0,0,0}}
@@ -81,19 +85,22 @@ evaluate our algorithm on a KITTI data-set \cite{Geiger2012}.
 
 Typical visual odometry pipeline is shown in Figure~\ref{fig:pipeline}
 
-\begin{figure}[h]
-  \centering
-  \smartdiagramset{border color=none,
-    uniform color list=teal!60 for 5 items,
-    back arrow disabled=true,
-    sequence item height=2cm,
-  }
-  \smartdiagram[flow diagram:horizontal]{Image sequence, Feature detection,
-    Feature matching or tracking, Motion estimation, Bundle
-    Adjustment}
+\begin{wrapfigure}{r}{0.5\textwidth}
+  \begin{center}
+    \smartdiagramset{border color=none,
+      uniform color list=teal!50 for 5 items,
+      font=\scriptsize,
+      back arrow disabled=true,
+      text width=3cm,
+    }
+    
+    \smartdiagram[flow diagram]{Image sequence, Feature detection,
+      Feature matching, Motion estimation, Bundle
+      Adjustment}
+  \end{center}
   \caption{Common visual odometry pipeline}
   \label{fig:pipeline}
-\end{figure}
+\end{wrapfigure}
 
 \subsection{Related Work}
 Visual odometry is an active fields of research with vast amount of
@@ -122,7 +129,7 @@ corners, but this choice is not crucial. We view feature point choice
 as a parameter, which needs to be determined from data (e.g., by
 cross-validation).
 
-\begin{figure}[h]
+\begin{figure}
   \centering
   \includegraphics{5ptm2}
   \caption{Matching features in two images are projections of the same
@@ -274,11 +281,8 @@ X\\ Y\\ Z\\ 1
 
 Denote the \emph{intrinsic parameters} matrix:
 \begin{equation}
-K=\begin{bmatrix}
-f& &p_x& \\
- &f&p_y& \\
- & &1  &
-\end{bmatrix}
+\label{eq:intrinsic}
+K=\begin{bmatrix} f & & p_x & \\ & f & p_y & \\ & & 1 & \end{bmatrix}
 \end{equation}
 
 Denote $\mathbf{t} = -RC$ and let the \emph{extrinsic parameters}
@@ -298,6 +302,171 @@ $P=K[R\ \mathbf{t}]$, we may write:
 Note that, $ \mathbf{X}_{cam}= [\mathsf{R}\ \mathbf{t}]\mathbf{X}$ is the
 representation of $\mathbf{X}$ in the camera reference frame.
 
+\section{Image Point Mapping Related to Camera Motion}
+
+Suppose the camera matrices are those of a calibrated stereo rig with
+the world origin at the first camera
+
+\[
+\mathrm{P = K[I\ |\ 0]\quad P'=K'[R\ |\ \mathbf{t}]}
+\]
+
+Consider projections of a 3D point $(X,Y,Z,1)^T$ into the image planes of both views:
+
+\[
+\mathrm{\mathbf{x} = P\mathbf{X} \quad \mathbf{x}' = P'\mathbf{X}}
+\]
+
+If the image point is normalized as $\mathbf{x} = (x,y,1)^T$ then
+\[
+\mathbf{x}Z = \mathrm{P\mathbf{X} = K[I\ |\ 0]\mathbf{X} = K}(X,Y,Z)^T
+\]
+
+It follows that $(X,Y,Z)^T = \mathrm{K^{-1}}\mathbf{x}Z$, and:
+\begin{align}
+  \mathbf{x}' &= \mathrm{K'[R\ |\ \mathbf{t}]}(X,Y,Z,1)^T \\
+  &= \mathrm{K'R}(X,Y,Z)^T + \mathrm{K'\mathbf{t}}\\
+  &= \mathrm{K'RK^{-1}}\mathbf{x}Z + \mathrm{K'\mathbf{t}}\\
+\end{align}
+
+Now we divide both sides by $Z$ to obtain the mapping of an image point $\mathbf{x}$ to image point $\mathbf{x}'$
+
+\begin{equation}
+  \label{eq:point_motion}
+  \mathbf{x}' = \mathrm{K'RK^{-1}}\mathbf{x} + \mathrm{K'}\mathbf{t}/Z = \mathrm{H}\mathbf{x}+ \mathrm{K'}\mathbf{t}/Z
+\end{equation}
+
+If $\mathrm{R = I}$ (e.g. pure translation) the point $\mathbf{x}$ will undergo a motion along a corresponding epipolar line:
+\[
+\mathbf{x}' = \mathbf{x}+ \mathrm{K'}\mathbf{t}/Z = \mathbf{e}'/Z
+\]
+
+If $\mathbf{t} = \mathbf{0}$ the motion of the point may be represented by a homology:
+\[
+\mathbf{x}' = \mathrm{H}\mathbf{x}
+\]
+
+\begin{figure}[h]
+\includegraphics[scale=.3]{general_camera_motion}
+\centering
+\caption{General camera motion may be viewed as a two step process}
+\end{figure}
+
+In a general case the mapping of an image point $\mathbf{x}$ into $\mathbf{x}'$ may be viewed as a two step process: transformation by a homology (a specialization of homography which has two equal eigenvalues) $\mathrm{H}$ which simulates a pure rotational motion of the camera followed by an offset along the epipolar line which simulates a pure translational motion of the camera.
+
+\section{Motion Estimation Pipeline}
+
+\subsection{Feature Matching}
+We use Harris corner detector, it is fast, well localized and corners
+are abundant in urban scenes we work with. We detect corners in each
+new image and then match them to obtain putative matches. We use
+sum-of-square differences (SSD) as a metric function.  We enforce
+epipolar and chierality (visibility) constraints for matches across a
+calibrated stereo pair, thus making the search one dimensional. In a
+similar fashion to \cite{Geiger2011} we enforce circular match
+heuristic to prune outliers.  We tune cornerness threshold of the
+detector in such a way, that we obtain about five hundred track-lets
+after matching and pruning.
+
+\subsection{Motion Estimation}
+First we partition all features into two sets, distant point and
+near-by points.  We do so by applying a hard threshold to the
+$Z$-coordinate of the triangulated point.  This threshold is a
+parameter to the algorithm and we fine-tune it using cross-validation
+style procedure.
+
+\paragraph{Rotation Estimation.} We use distant points to estimate rotation $\mathrm{R}$. Our assumption is that for these points:
+
+\begin{equation}
+\mathbf{x}' \approx \mathrm{H}_\infty\mathbf{x} = \mathrm{K'RK^{-1}}\mathbf{x}
+\end{equation}
+
+We multiply both sides by $\mathrm{K'^{-1}}$ and denote $\mathbf{u'} = \mathrm{K'^{-1}}\mathbf{x}$ and $\mathbf{u} = \mathrm{K^{-1}}\mathbf{x}$:
+
+\begin{equation}
+\mathbf{u'} = \mathrm{K'^{-1}}\mathbf{x}' \approx \mathrm{RK^{-1}}\mathbf{x} = \mathrm{R}\mathbf{u}
+\end{equation}
+
+Since only the directions of $\mathbf{u'}$ and $\mathbf{u}$ are of
+importance, we normalize them to unit length and solve absolute
+orientation to obtain initial estimate of $\mathrm{R}$.
+
+Next, we refine our estimate of $\mathrm{R}$ by means of non-linear
+optimization procedure.  For each correspondence, we define its error
+to be orthogonal distance to the corresponding epipolar line and
+minimize the sum of squared error by means of Levenberg-Marquardt
+optimization algorithm. We do so, because as \ref{eq:point_motion}
+suggests after we compensate for a known rotation $\mathrm{R}$ we are
+still left with (small for distant points) displacements along
+epipolar lines.
+
+To make this procedure robust to outliers, we wrap it into RANSAC
+iterations.  Finally, we choose a rotation that has the largest
+support set.
+
+\paragraph{Translation Estimation} We apply translation estimation
+only to near-by points.  First, we triangulate these points in the
+previous stereo pair to obtain their 3-D locations, and then
+iteratively minimize the sum of reprojection errors into the current
+frame.
+
+The reprojection of point $\mathbf{X}=(X,Y,Z,1)^T$ into the current
+left image is given by:
+\begin{equation}
+  \pi^{(l)}(\mathbf{X};\mathbf{t}) =  K\Bigl[ \mathrm{R}\ |\ \mathbf{t} \Bigr]\mathbf{X} 
+\end{equation}
+and the reprojection of the same point into the current right image is
+given by:
+\begin{equation}
+  \pi^{(r)}(\mathbf{X};\mathbf{t}) =  K\Bigl[ \mathrm{R}\ |\ \mathbf{t} \Bigr](\mathbf{X} - (b,0,0,0)^T)
+\end{equation}
+Where 
+\begin{itemize}
+\item $\mathrm{R}\in SO(3)$ is a rotation matrix
+\item $\mathbf{t}\in \mathbf{R}^3$ is an inhomogeneous camera translation vector
+\item $\mathrm{K}$ is a camera intrinsic matrix, as in \ref{eq:intrinsic}
+\end{itemize}
+
+We use Levenberg-Marquardt algorithm to iteratively minimize the sum
+of squared reprojection errors:
+\begin{equation}
+\norm{\mathbf{x'} - \pi^{(l)}(\mathbf{X};\mathbf{t})}^2 + \norm{\mathbf{x'} - \pi^{(r)}(\mathbf{X};\mathbf{t})}^2
+\end{equation}
+
+There are three unknown parameters, since $\mathbf{t} =
+(t_x,t_y,t_z)^T$, thus a single 3-D point provides enough constraints
+to determine $\mathbf{t}$ (this minimization procedure is referred to
+as 1-point algorithm in the literature [ref?]).
+
+We do not search for an initial estimate of $\mathbf{t}$ since the
+optimization procedure usually converges to a close enough solution.
+
+\section{Results}
+
+We provide results for our algorithm on a KITTI dataset
+\cite{Geiger2012}.
+
+\begin{figure}
+  \centering
+
+  \begin{minipage}[b]{0.45\linewidth}
+    \includegraphics[scale=.4]{top_path}
+    \caption{Top view of the path}
+    \label{fig:4top}
+  \end{minipage}
+  \quad
+  \begin{minipage}[b]{0.45\linewidth}
+    \includegraphics[scale=.4]{rotation_error}
+    \caption{Rotation Error}
+    \label{fig:4rot_erro}
+  \end{minipage}
+  \quad
+  \begin{minipage}[b]{0.45\linewidth}
+    \includegraphics[scale=.4]{translation_error}
+    \caption{Translation Error}
+    \label{fig:4trans_error}
+  \end{minipage}
+\end{figure}
 
 \clearpage\mbox{}Page \thepage\ of the manuscript.
 \clearpage\mbox{}Page \thepage\ of the manuscript.
@@ -305,8 +474,8 @@ representation of $\mathbf{X}$ in the camera reference frame.
 \clearpage\mbox{}Page \thepage\ of the manuscript.
 \clearpage\mbox{}Page \thepage\ of the manuscript.
 \clearpage\mbox{}Page \thepage\ of the manuscript.
-\clearpage\mbox{}Page \thepage\ of the manuscript.
-This is the last page of the manuscript.
+\clearpage\mbox{}Page \thepage\ of the manuscript.  This is the last
+page of the manuscript.
 \par\vfill\par
 Now we have reached the maximum size of the ECCV 2016 submission (excluding references).
 References should start immediately after the main text, but can continue on p.15 if needed.
@@ -314,7 +483,7 @@ References should start immediately after the main text, but can continue on p.1
 \clearpage
 
 \bibliographystyle{splncs}
-\bibliography{thesis}
+\bibliography{egbib}
 \end{document}
 
 %%% Local Variables:

@@ -17,6 +17,8 @@ p.addOptional('last',default_last,@isnumeric);
 p.addOptional('depth_thr',100,@isnumeric);
 p.addOptional('inlier_thr',1,@isnumeric);
 p.addOptional('ransac_iter',2,@isnumeric);
+p.addOptional('sha','');
+p.addOptional('run_ss',true,@isboolean);
 
 p.KeepUnmatched = true;
 parse(p,varargin{:});
@@ -38,7 +40,6 @@ poses2 = poses1;
 tracks = containers.Map('KeyType','uint64','ValueType','any');
 update_tracks(fullfile('/home/kreimer/KITTI/tracks',sequence, sprintf('%06d.txt',p.Results.first-2)), tracks);
 
-missed = false(1,p.Results.last);
 for i = p.Results.first:p.Results.last
     fprintf('processing frame %d of %d\n', i, p.Results.last);
     
@@ -58,7 +59,7 @@ for i = p.Results.first:p.Results.last
     [X,visible] = util.triangulate_chieral(x1,x2,param.P1,param.P2);
 
     directory = fullfile(DATA_ROOT,'data',sequence);
-    filename = fullfile(directory, [sprintf('%06d',i), '.mat']);
+    filename = fullfile(directory, [sprintf('%06d',i),'.mat']);
     if ~exist(directory,'dir')
         command = ['mkdir -p ', fullfile(directory)];
         system(command);
@@ -73,12 +74,14 @@ for i = p.Results.first:p.Results.last
     X   = X(:,visible);
     Xp  = Xp(:,visible);
     
-    disp('original reprojection minimization')
-    tic;[a_ss, inliers,residual] = estimation.ransac_minimize_reproj(Xp, [x1; x2], param);toc;
-    stats(i).ss.T                = util.tr2mat(a_ss);
-    stats(i).ss.inliers          = {inliers};
-    stats(i).ss.residual         = {residual};
-
+    if p.Results.run_ss
+        disp('original reprojection minimization')
+        tic;[a_ss, inliers,residual] = estimation.ransac_minimize_reproj(Xp, [x1; x2], param);toc;
+        stats(i).ss.T                = util.tr2mat(a_ss);
+        stats(i).ss.inliers          = {inliers};
+        stats(i).ss.residual         = {residual};
+    end
+    
     %     disp('new reprojection minimization')
     %     tic; pose = estimation.ransac_min_reproj(K,param.base,Xp,x1,x2); toc;
     %     stats(i).ss1.T = pose;
@@ -109,17 +112,26 @@ for i = p.Results.first:p.Results.last
         [TH1,inliers1,residual1] = estimation.rel_motion_H(K,[x1p x2p],[x1 x2],...
             [X(3,:) X(3,:)],param.base,'F',F1,'absRotInit',true,...
             'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
-        [TH2,inliers2,residual2] = estimation.rel_motion_H(K,x2p,x1,X(3,:),param.base,'F',F2,'absRotInit',true,...
-            'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
-        TH = estimation.stereo_motion_triangulate(TH1,TH2,[param.base 0 0]');
-        stats(i).Hg.sucess   = true;
-        stats(i).Hg.T        = TH;
-        stats(i).Hg.inliers  = {inliers1,inliers2};
-        stats(i).Hg.residual = {residual1,residual2};
+%         [TH2,inliers2,residual2] = estimation.rel_motion_H(K,x2p,x1,X(3,:),param.base,'F',F2,'absRotInit',true,...
+%             'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
+%         TH = estimation.stereo_motion_triangulate(TH1,TH2,[param.base 0 0]');
+%         stats(i).Hg.sucess   = true;
+%         stats(i).Hg.T        = TH;
+%         stats(i).Hg.inliers  = {inliers1,inliers2};
+%         stats(i).Hg.residual = {residual1,residual2};
+        stats(i).Hg.success = true;
+        stats(i).Hg.T = TH1;
+        stats(i).Hg.inliers = inliers1;
+        stats(i).Hg.residual = residual1;
     else
-        stats(i).Hg.T      = stats(i).ss.T;
-        stats(i).Hg.sucess = false;
-    end
+        if p.results.run_ss
+            stats(i).Hg.T      = stats(i).ss.T;
+            stats(i).Hg.sucess = false;
+        else
+            [a_ss,~,~] = estimation.ransac_minimize_reproj(Xp, [x1; x2], param);
+            stats(i).Hg.T = util.tr2mat(a_ss);
+            stats(i).Hg.sucess = false;
+        end
     toc;
     
     stats(i).Hs.T        = stats(i).Hg.T;
@@ -127,7 +139,7 @@ for i = p.Results.first:p.Results.last
     
     disp('One point translation estimation');
     R = stats(i).Hg.T(1:3,1:3);
-    tic;[t,residual,inliers] = estimation.ransac_minimize_reproj1(Xp,R,x1,x2,param);toc;
+    tic;[t,~,inliers] = estimation.ransac_minimize_reproj1(Xp,R,x1,x2,param);toc;
     stats(i).HX.T = [R t; 0 0 0 1];    
     stats(i).HX.inliers = inliers;
     
@@ -197,6 +209,7 @@ for i = p.Results.first:p.Results.last
             end
         end
     end
+    
     % convert all poses to be relative to the world origin and save
     fields = fieldnames(stats);
     for ii=1:length(fields)

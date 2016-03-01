@@ -9,6 +9,7 @@ for j = 1:length(res)
     for i = 1:length(algs)
         alg = algs{i};
         field = [res{j},'_',algs{i}];
+        disp(res{j});
         info.(field).poses = util.read_poses(fullfile(DATA_ROOT, res{j}, alg, 'data', [sequence, '.txt']));
     end
 end

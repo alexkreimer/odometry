@@ -18,7 +18,7 @@ p.addOptional('depth_thr',100,@isnumeric);
 p.addOptional('inlier_thr',1,@isnumeric);
 p.addOptional('ransac_iter',2,@isnumeric);
 p.addOptional('sha','');
-p.addOptional('run_ss',true,@isboolean);
+p.addOptional('run_ss',true,@isnumeric);
 
 p.KeepUnmatched = true;
 parse(p,varargin{:});
@@ -132,6 +132,7 @@ for i = p.Results.first:p.Results.last
             stats(i).Hg.T = util.tr2mat(a_ss);
             stats(i).Hg.sucess = false;
         end
+    end
     toc;
     
     stats(i).Hs.T        = stats(i).Hg.T;

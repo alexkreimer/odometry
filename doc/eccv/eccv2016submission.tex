@@ -103,9 +103,9 @@ Typical visual odometry pipeline is shown in Figure~\ref{fig:pipeline}
 \end{wrapfigure}
 
 \subsection{Related Work}
-Visual odometry is an active fields of research with vast amount of
-published work.  We review only the most pertinent works. Please,
-refer to \cite{Scaramuzza2011} for a more complete survey.
+Visual odometry is an active fields of research with large amount of
+published work.  We review only the most pertinent works.
+\cite{Scaramuzza2011} provides a more complete survey.
 
 Similar to \cite{Persson2015} we partition visual odometry algorithms
 by four traits:
@@ -180,8 +180,19 @@ algorithms perform better.
 
 \subsection{Our work}
 
-Our work falls into local, feature based stereo odometry. Key ideas
-that guide our work are:
+In this work we present a novel algorithm for camera motion
+estimation.  The novelty of the algorithm is in camera rotation
+estimation procedure.  We rely on the fact that for scene points that
+are infinitely far from the camera, the motion of the projected points
+may be described by a homography. For distant points this assumption
+is nearly true.  Thus our algorithm relies on the partition of the
+points to distant and near.
+
+The algorithm may be used either in stereo or in monocular setting,
+though in this work we present the stereo version.  Of course, in monocular setting only the 
+
+  Our work falls into local, feature based stereo
+odometry. Key ideas that guide our work are:
 \begin{itemize}
 \item Prefer use of directly observed image features (as opposed to
   the computed 3-D features) as inputs for the estimation procedure.

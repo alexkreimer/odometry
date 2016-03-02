@@ -183,42 +183,39 @@ algorithms perform better.
 In this work we present a novel algorithm for camera motion
 estimation.  The novelty of the algorithm is in camera rotation
 estimation procedure.  We rely on the fact that for scene points that
-are infinitely far from the camera, the motion of the projected points
-may be described by a homography. For distant points this assumption
-is nearly true.  Thus our algorithm relies on the partition of the
-points to distant and near.
+are infinitely far from the camera, the motion of the projected
+(image) points may be described by a homography. For distant points
+this assumption is nearly true.  Our algorithm starts by partitioning
+the scene points into two sets: distant and near-by. Then, camera
+Rotation is estimated from the distant points and, subsequently, the
+translation is recovered from near-by points.
 
-The algorithm may be used either in stereo or in monocular setting,
-though in this work we present the stereo version.  Of course, in monocular setting only the 
+Current work presents the algorithm in stereo setting, however it may
+also be used in monocular setting. We use stereo to partition the
+scene points, in \ref{sec:mono} we discuss how this may be done in
+mono.
 
-  Our work falls into local, feature based stereo
-odometry. Key ideas that guide our work are:
-\begin{itemize}
-\item Prefer use of directly observed image features (as opposed to
-  the computed 3-D features) as inputs for the estimation procedure.
-\item Decouple rotation rotation and translation estimation into
-  separate sub-problems.  Each sub-problem yields a smaller
-  optimization problem which are easier to solve than a single larger
-  optimization problem.
-\end{itemize}
+With respect to the classification of the visual odometry methods
+given in the introduction, our work is local, feature based, stereo
+odometry.  We do not use bundle adjustment, however the results of our
+algorithm may be subsequently improved with some form of bundle
+adjustment.
 
-The outline of the our method:
+The outline of the our method for two stereo image pairs:
 \begin{enumerate}
 \item Feature detection.  We use Harris \cite{Harris1987} features.
-\item Match features to previous frame. We enforce epipolar constraint
-  and use circle heuristics similar to \cite{Geiger2011}.
-\item Recover camera rotation by fitting homography into the matching
-  distant points.  We use 3-D at this step to decide which points are
-  distant.
-\item Compensate for the known rotation by application of infinite
-  homography to all feature points.  This leaves us with a pure
-  translation.
-\item Recover the translation by minimizing the re-projection error.
+\item Feature matching. The matching is done both across the stereo
+  pair images as well as previous vs. current pair.  We enforce
+  epipolar constraint, chierality and use circle heuristics similar to
+  \cite{Geiger2011} to reject outliers.
+\item Partition scene points into two sets: distant and near-by.
+\item Estimate camera rotation from distant points.
+\item Estimate camera translation from near-by points.
 \end{enumerate}
 
 \subsection{Results Outline}
 
-We show that on KITTI data-set our method improves upon StereoScan
+We show that on KITTI data-set our method improves upon StereoScan\cite{Geiger2011}
 results and competes with state of the art methods.
 
 \subsection{Conclusions}
@@ -344,13 +341,13 @@ Now we divide both sides by $Z$ to obtain the mapping of an image point $\mathbf
 
 \begin{equation}
   \label{eq:point_motion}
-  \mathbf{x}' = \mathrm{K'RK^{-1}}\mathbf{x} + \mathrm{K'}\mathbf{t}/Z = \mathrm{H}\mathbf{x}+ \mathrm{K'}\mathbf{t}/Z
+  \mathbf{x}' = \mathrm{K'RK^{-1}}\mathbf{x} + \mathrm{K'}\mathbf{t}/Z = \mathrm{H}\mathbf{x}+ \mathrm{K'}\mathbf{t}/Z = \mathrm{H}\mathbf{x} + \mathbf{e'}/Z
 \end{equation}
 
 If $\mathrm{R = I}$ (e.g. pure translation) the point $\mathbf{x}$ will undergo a motion along a corresponding epipolar line:
-\[
+\begin{equation}
 \mathbf{x}' = \mathbf{x}+ \mathrm{K'}\mathbf{t}/Z = \mathbf{e}'/Z
-\]
+\end{equation}
 
 If $\mathbf{t} = \mathbf{0}$ the motion of the point may be represented by a homology:
 \[
@@ -386,7 +383,8 @@ $Z$-coordinate of the triangulated point.  This threshold is a
 parameter to the algorithm and we fine-tune it using cross-validation
 style procedure.
 
-\paragraph{Rotation Estimation.} We use distant points to estimate rotation $\mathrm{R}$. Our assumption is that for these points:
+\paragraph{Rotation Estimation.} We use distant points to estimate
+rotation $\mathrm{R}$. Our assumption is that for these points:
 
 \begin{equation}
 \mathbf{x}' \approx \mathrm{H}_\infty\mathbf{x} = \mathrm{K'RK^{-1}}\mathbf{x}
@@ -452,6 +450,30 @@ as 1-point algorithm in the literature [ref?]).
 We do not search for an initial estimate of $\mathbf{t}$ since the
 optimization procedure usually converges to a close enough solution.
 
+\subsection{Monocular setting}
+
+In this section we show how our algorithm may be adapted to monocular
+setting.
+
+The dependence of the algorithm as described in previous sections on
+stereo is in the scene point partition stage.  We are interested in
+points, s.t. in \ref{eq:point_motion} the $\mathbf{t}/Z$ is small
+($\mathbf{t}$ is the translation of the camera or ``baseline'' and $Z$
+is the depth of the 3D-point). This causes the desired property of
+homography mapping to hold.
+
+When we threshold the distance to the 3-D point (e.g., $Z$) we do it
+in units of baseline, e.g.,
+
+\begin{equation}
+Z<\alpha \norm{ \mathbf{t} }
+\end{equation}
+which is equivalent to
+\begin{equation}
+\frac{\norm{\mathbf{t}}}{Z} > \frac{1}{\alpha}
+\end{equation}
+
+Note that in the monocular setting the baseline is known only up to scale, however, since $Z$ is known also up to the same scale factor.
 \section{Results}
 
 We provide results for our algorithm on a KITTI dataset

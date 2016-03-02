@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-sequences="04 00 01 02 03 05 06 07 08 09 10"
+sequences="00 01 02 03 05 06 07 08 09 10"
 depths="150"
 inlier_thrs="4"
 ransac_iters="500"

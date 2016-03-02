@@ -124,7 +124,7 @@ for i = p.Results.first:p.Results.last
         stats(i).Hg.inliers = inliers1;
         stats(i).Hg.residual = residual1;
     else
-        if p.results.run_ss
+        if p.Results.run_ss
             stats(i).Hg.T      = stats(i).ss.T;
             stats(i).Hg.sucess = false;
         else

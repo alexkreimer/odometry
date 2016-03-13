@@ -10,19 +10,21 @@
 \usepackage{etoolbox}
 \usepackage{smartdiagram}
 \usepackage{wrapfig}
+\usepackage{subcaption}
+\captionsetup{compatibility=false}
 
 \DeclarePairedDelimiter{\abs}{\lvert}{\rvert}
 \DeclarePairedDelimiter{\norm}{\lVert}{\rVert}
 
 \begin{document}
-% \renewcommand\thelinenumber{\color[rgb]{0.2,0.5,0.8}\normalfont\sffamily\scriptsize\arabic{linenumber}\color[rgb]{0,0,0}}
-% \renewcommand\makeLineNumber {\hss\thelinenumber\ \hspace{6mm} \rlap{\hskip\textwidth\ \hspace{6.5mm}\thelinenumber}}
-% \linenumbers
+ %\renewcommand\thelinenumber{\color[rgb]{0.2,0.5,0.8}\normalfont\sffamily\scriptsize\arabic{linenumber}\color[rgb]{0,0,0}}
+%\renewcommand\makeLineNumber {\hss\thelinenumber\ \hspace{6mm} \rlap{\hskip\textwidth\ \hspace{6.5mm}\thelinenumber}}
+%\linenumbers
 \pagestyle{headings}
 \mainmatter
 \def\ECCV16SubNumber{***}  % Insert your submission number here
 
-\title{Author Guidelines for ECCV Submission} % Replace with your title
+\title{Infinite Visual Odometry} % Replace with your title
 
 \titlerunning{ECCV-16 submission ID \ECCV16SubNumber}
 
@@ -55,7 +57,6 @@
 
 \section{Introduction}
 
-\subsection{Motivation}
 Visual odometry refers to the problem of recovering camera motion
 based on the images taken by it. This problem naturally occurs in
 robotics, wearable computing, augmented reality and automotive.
@@ -178,7 +179,7 @@ recovered. Additional advantage of the stereo setup is more
 information at each step, which may be one of the reasons why stereo
 algorithms perform better.
 
-\subsection{Our work}
+\subsection{Our method}
 
 In this work we present a novel algorithm for camera motion
 estimation.  The novelty of the algorithm is in camera rotation
@@ -217,8 +218,6 @@ The outline of the our method for two stereo image pairs:
 
 We show that on KITTI data-set our method improves upon StereoScan\cite{Geiger2011}
 results and competes with state of the art methods.
-
-\subsection{Conclusions}
 
 \section{Preliminaries and Notation}
 
@@ -310,7 +309,7 @@ $P=K[R\ \mathbf{t}]$, we may write:
 Note that, $ \mathbf{X}_{cam}= [\mathsf{R}\ \mathbf{t}]\mathbf{X}$ is the
 representation of $\mathbf{X}$ in the camera reference frame.
 
-\section{Image Point Mapping Related to Camera Motion}
+\subsection{Image Point Mapping Related to Camera Motion}
 
 Suppose the camera matrices are those of a calibrated stereo rig with
 the world origin at the first camera
@@ -346,7 +345,7 @@ Now we divide both sides by $Z$ to obtain the mapping of an image point $\mathbf
 
 If $\mathrm{R = I}$ (e.g. pure translation) the point $\mathbf{x}$ will undergo a motion along a corresponding epipolar line:
 \begin{equation}
-\mathbf{x}' = \mathbf{x}+ \mathrm{K'}\mathbf{t}/Z = \mathbf{e}'/Z
+\mathbf{x}' = \mathbf{x}+ \mathrm{K'}\mathbf{t}/Z = x+\mathbf{e}'/Z
 \end{equation}
 
 If $\mathbf{t} = \mathbf{0}$ the motion of the point may be represented by a homology:
@@ -364,54 +363,100 @@ In a general case the mapping of an image point $\mathbf{x}$ into $\mathbf{x}'$ 
 
 \section{Motion Estimation Pipeline}
 
-\subsection{Feature Matching}
-We use Harris corner detector, it is fast, well localized and corners
-are abundant in urban scenes we work with. We detect corners in each
-new image and then match them to obtain putative matches. We use
-sum-of-square differences (SSD) as a metric function.  We enforce
-epipolar and chierality (visibility) constraints for matches across a
-calibrated stereo pair, thus making the search one dimensional. In a
-similar fashion to \cite{Geiger2011} we enforce circular match
-heuristic to prune outliers.  We tune cornerness threshold of the
-detector in such a way, that we obtain about five hundred track-lets
-after matching and pruning.
+\subsection{Choice of Features}
+\paragraph{Feature Detector/Descriptor:} We use Harris
+\cite{Harris1988} corner detector. It is fast, well localized and
+(most important) Harris corners are abundant in urban scenes we work
+with. We detect corners in each new image and then match them to
+obtain putative matches.  We tune sensitivity threshold of the
+detector in such a way, that we are left with about five hundred
+putative matches after matching and pruning.  We extract a square
+patch of $7\times 7$ pixels centered at the corner point and use this
+vector as feature descriptor.
+
+We would like to point out that our method may be used with any
+feature detector that would allow to match features across images. The
+choice of feature detector should be viewed as a parameter to the
+algorithm and mainly depends on the images at test.
+
+\noindent
+\paragraph{Feature Matching:} We use sum-of-square differences (SSD)
+of feature descriptors as a metric function when matching
+features. For each feature we choose a single best match w.r.t. the
+metric function in the other image. We employ a number of heuristics
+to prune outliers:
+\begin{itemize}
+\item Reciprocity: features $a$ and $b$ match only if $a$ matches $b$
+  and $b$ matches $a$
+\item Epipolar constraint: we work with calibrated stereo pair.  When
+  we match features across images of stereo pair, the search is
+  one-dimensional, i.e., along the horizontal epipolar line.  This
+  heuristic is not used when matching features across subsequent
+  frames.
+\item Chierality (visibility): also used when matching features across
+  stereo pair images.  We triangulate the features to obtain the 3-D
+  point and keep the match only if the 3-D point is visible in both
+  cameras.
+\item Circular match: similar to \cite{Geiger2011} we keep only those
+  matches that form a circle.
+\end{itemize}
 
 \subsection{Motion Estimation}
-First we partition all features into two sets, distant point and
+
+First we partition all features into two sets: distant points and
 near-by points.  We do so by applying a hard threshold to the
 $Z$-coordinate of the triangulated point.  This threshold is a
-parameter to the algorithm and we fine-tune it using cross-validation
-style procedure.
+parameter to the algorithm.
 
-\paragraph{Rotation Estimation.} We use distant points to estimate
-rotation $\mathrm{R}$. Our assumption is that for these points:
-
-\begin{equation}
+\paragraph{Rotation Estimation:} We use distant points to estimate
+rotation $\mathrm{R}$ (i.e., near-by points do not influence this part
+of the algorithm). The assumption is that for these points:
+\begin{equation}\label{eq:h_inf}
 \mathbf{x}' \approx \mathrm{H}_\infty\mathbf{x} = \mathrm{K'RK^{-1}}\mathbf{x}
 \end{equation}
-
-We multiply both sides by $\mathrm{K'^{-1}}$ and denote $\mathbf{u'} = \mathrm{K'^{-1}}\mathbf{x}$ and $\mathbf{u} = \mathrm{K^{-1}}\mathbf{x}$:
+The estimation algorithm has two parts: initialization and
+refinement. To initialize the rotation, we multiply both sides of
+\ref{eq:h_inf} by $\mathrm{K'^{-1}}$ and denote $\mathbf{u'} =
+\mathrm{K'^{-1}}\mathbf{x}$ and $\mathbf{u} =
+\mathrm{K^{-1}}\mathbf{x}$:
 
 \begin{equation}
-\mathbf{u'} = \mathrm{K'^{-1}}\mathbf{x}' \approx \mathrm{RK^{-1}}\mathbf{x} = \mathrm{R}\mathbf{u}
+  \mathbf{u'} = \mathrm{K'^{-1}}\mathbf{x}' \approx \mathrm{RK^{-1}}\mathbf{x} = \mathrm{R}\mathbf{u}
 \end{equation}
 
-Since only the directions of $\mathbf{u'}$ and $\mathbf{u}$ are of
-importance, we normalize them to unit length and solve absolute
-orientation to obtain initial estimate of $\mathrm{R}$.
+Since $u$ and $u'$ are projective quantities, only their directions
+are of importance, we normalize them to unit length and solve absolute
+orientation \cite{Horn1987} to obtain initial estimate of
+$\mathrm{R}$. Both cameras of the stereo rig undergo the same rigid
+motion (e.g., the same rotation $\mathrm{R}$ and the same translation
+$\mathbf{t}$), therefore features from both images of the stereo pair
+comply with \ref{eq:h_inf}. Thus we unify feature points from both
+images for sake of estimation (this augmentation only is possible in
+stereo setting).
 
-Next, we refine our estimate of $\mathrm{R}$ by means of non-linear
-optimization procedure.  For each correspondence, we define its error
-to be orthogonal distance to the corresponding epipolar line and
-minimize the sum of squared error by means of Levenberg-Marquardt
-optimization algorithm. We do so, because as \ref{eq:point_motion}
-suggests after we compensate for a known rotation $\mathrm{R}$ we are
-still left with (small for distant points) displacements along
-epipolar lines.
+To refine the initial estimate of $\mathrm{R}$ we use non-linear
+optimization procedure.  Consider the objective:
+\begin{equation}
+  \begin{split}
+    \mathrm{R(v,\theta)} = \underset{v,\theta}{\mathrm{argmin}}
+    \sum_{i=1}^N{r_i}^2\quad \text{s.t.}\quad n_i &=
+    (\mathrm{F}x_i)_\perp \\ r_i&=n_i\cdot (x_i'-H(v,\theta)x_i)
+  \end{split}
+\end{equation}
+Here $\mathrm{H}(v,\theta) = \mathrm{K'R(v,\theta)K^{-1}}$ and
+$(\mathrm{F}x_i)_\perp$ is the normal to the epipolar line.  In other
+words, we define the error to be orthogonal distance to the
+corresponding epipolar line.  We do so, because as
+\ref{eq:point_motion} suggests that after we compensate for a known
+rotation $\mathrm{R}$ we are still left with (small for distant
+points) displacements along corresponding epipolar lines.
 
-To make this procedure robust to outliers, we wrap it into RANSAC
-iterations.  Finally, we choose a rotation that has the largest
-support set.
+We minimize the sum of squared errors by means of Levenberg-Marquardt
+optimization algorithm. Rotations are parameterized by axis/angle
+representation and the optimization is over $v\cdot \theta$ which is
+simple to implement and fair \ref{?} . To make this procedure robust
+to outliers, we wrap it into RANSAC iterations.  Finally, we choose a
+rotation that has the largest support set.
 
 \paragraph{Translation Estimation} We apply translation estimation
 only to near-by points.  First, we triangulate these points in the
@@ -473,40 +518,106 @@ which is equivalent to
 \frac{\norm{\mathbf{t}}}{Z} > \frac{1}{\alpha}
 \end{equation}
 
-Note that in the monocular setting the baseline is known only up to scale, however, since $Z$ is known also up to the same scale factor.
-\section{Results}
+Note that in the monocular setting the baseline is known only up to scale, however, since $Z$ is known also up to the same scale factor it cancels out and the threshold is the same threshold.
 
+\section{Experiments}
+
+\subsection{Stereo}
 We provide results for our algorithm on a KITTI dataset
 \cite{Geiger2012}.
 
 \begin{figure}
-  \centering
-
-  \begin{minipage}[b]{0.45\linewidth}
-    \includegraphics[scale=.4]{top_path}
-    \caption{Top view of the path}
-    \label{fig:4top}
+  \begin{minipage}[t]{.3\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{top_path_00}
+    \subcaption{00}
+    \includegraphics[width=\textwidth]{top_path_03}
+    \subcaption{03}
   \end{minipage}
-  \quad
-  \begin{minipage}[b]{0.45\linewidth}
-    \includegraphics[scale=.4]{rotation_error}
-    \caption{Rotation Error}
-    \label{fig:4rot_erro}
+  \begin{minipage}[t]{.3\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{top_path_01}
+    \subcaption{01}
+    \includegraphics[width=\textwidth]{top_path_04}
+    \subcaption{04}
   \end{minipage}
-  \quad
-  \begin{minipage}[b]{0.45\linewidth}
-    \includegraphics[scale=.4]{translation_error}
-    \caption{Translation Error}
-    \label{fig:4trans_error}
+  \begin{minipage}[t]{.3\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{top_path_02}
+    \subcaption{02}
+    \includegraphics[width=\textwidth]{top_path_05}
+    \subcaption{05}
   \end{minipage}
+  \caption{Top view of a subset of sequences}
 \end{figure}
 
-\clearpage\mbox{}Page \thepage\ of the manuscript.
-\clearpage\mbox{}Page \thepage\ of the manuscript.
-\clearpage\mbox{}Page \thepage\ of the manuscript.
-\clearpage\mbox{}Page \thepage\ of the manuscript.
-\clearpage\mbox{}Page \thepage\ of the manuscript.
-\clearpage\mbox{}Page \thepage\ of the manuscript.
+\begin{figure}
+  \begin{minipage}[t]{.3\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{rotation_error_00}
+    \subcaption{00}
+    \includegraphics[width=\textwidth]{rotation_error_03}
+    \subcaption{03}
+  \end{minipage}
+  \begin{minipage}[t]{.3\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{rotation_error_01}
+    \subcaption{01}
+    \includegraphics[width=\textwidth]{rotation_error_04}
+    \subcaption{04}
+  \end{minipage}
+  \begin{minipage}[t]{.3\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{rotation_error_02}
+    \subcaption{02}
+    \includegraphics[width=\textwidth]{rotation_error_05}
+    \subcaption{05}
+  \end{minipage}
+  \caption{Rotation Errors}
+\end{figure}
+
+\begin{figure}
+  \begin{minipage}[t]{.3\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{translation_error_00}
+    \subcaption{00}
+    \includegraphics[width=\textwidth]{translation_error_03}
+    \subcaption{03}
+  \end{minipage}
+  \begin{minipage}[t]{.3\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{translation_error_01}
+    \subcaption{01}
+    \includegraphics[width=\textwidth]{translation_error_04}
+    \subcaption{04}
+  \end{minipage}
+  \begin{minipage}[t]{.3\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{translation_error_02}
+    \subcaption{02}
+    \includegraphics[width=\textwidth]{translation_error_05}
+    \subcaption{05}
+  \end{minipage}
+  \caption{Translation errors}
+\end{figure}
+
+\begin{table}
+\centering
+\caption{Rotation errors for KITTI sequences}
+\smallskip\noindent
+\resizebox{\linewidth}{!}{%
+\input{r_err}
+}
+\end{table}
+
+\begin{table}
+\centering
+\caption{Translation error for KITTI sequences}
+\input{t_err}
+\end{table}
+
+\subsection{Mono}
+
 \clearpage\mbox{}Page \thepage\ of the manuscript.  This is the last
 page of the manuscript.
 \par\vfill\par

@@ -1,4 +1,4 @@
-function [T,inliers,residual] = rel_motion_H(K,x1,x2,d,b,varargin)
+function [R,inliers,residual] = rel_motion_H(K,x1,x2,d,b,varargin)
 
 % x1 interest points in image 1
 % x2 interest points in image 2
@@ -32,7 +32,8 @@ x2o = x2(:,~inliers);
 x1  = x1(:, inliers);
 x2  = x2(:, inliers);
 [H,R,inliers_H,residual] = estimation.H_inf_nonlin(K,x1,x2,varargin{:});
-t = estimation.trans_geom(K,H,x1o,x2o);
+%t = estimation.trans_geom(K,H,x1o,x2o);
+t = [0;0;0];
 T = [R t; 0 0 0 1];
 inliers = find(inliers);
 inliers = inliers(inliers_H);

@@ -85,7 +85,7 @@ for i=1:N
     R1 = R';
     t1 = -R'*t;
     F = K'\util.skew(t1)*R1/K;
-    R_est = estimation.H_inf_nonlin(K,F,x1, x2, R1);
+    R_est = estimation.H_inf_nonlin(K,x1,x2,'F',F);
     
     delta = R_est\R;
     pose_error = [delta zeros(3,1); 0 0 0 1];

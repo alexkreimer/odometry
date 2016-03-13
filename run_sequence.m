@@ -18,18 +18,43 @@ p.addOptional('depth_thr',100,@isnumeric);
 p.addOptional('inlier_thr',1,@isnumeric);
 p.addOptional('ransac_iter',2,@isnumeric);
 p.addOptional('sha','');
-p.addOptional('run_ss',true,@isnumeric);
+p.addOptional('mono_left',0,@isnumeric);
+p.addOptional('mono_right',0,@isnumeric);
+p.addOptional('stereo',0,@isnumeric);
+p.addOptional('compute_rig_bias',0,@isnumeric);
+p.addOptional('correct_rig_bias',0,@isnumeric);
 
 p.KeepUnmatched = true;
 parse(p,varargin{:});
 
-RESULT_DIR = fullfile(DATA_ROOT, sprintf('results_%d_%d_%d',p.Results.depth_thr,p.Results.inlier_thr,p.Results.ransac_iter));
+if p.Results.mono_left
+    str = 'mono_left';
+elseif p.Results.mono_right
+    str = 'mono_right';
+elseif p.Results.stereo
+    str = 'stereo';
+else
+    error('you need to specify either mono_left or mono_right or stereo');
+end
+
+RESULT_DIR = fullfile(DATA_ROOT, sprintf('results_%s_depth%d_in%d_ransac%d_%s',p.Results.sha,p.Results.depth_thr,p.Results.inlier_thr,p.Results.ransac_iter,str));
+RESDATA_DIR= fullfile(DATA_ROOT, sprintf(   'data_%s_depth%d_in%d_ransac%d_%s',p.Results.sha,p.Results.depth_thr,p.Results.inlier_thr,p.Results.ransac_iter,str),sequence);
+if ~exist(RESDATA_DIR,'dir')
+    command = ['mkdir -p ', fullfile(RESDATA_DIR)];
+    system(command);
+end
 
 % setup camera parameters (KITTI)
 [P0, P1] = util.kitti_read_calib(image_dir);
 poses_gt = util.read_poses(poses_file);
 param    = kitti_params(P0, P1);
 K = param.K;
+
+if p.Results.correct_rig_bias
+    load(sprintf('bias_%s', sequence));
+    load bias_fake;
+    H_bias = K*X/K;
+end
 
 gt = process_gt(poses_gt);
 
@@ -39,6 +64,10 @@ poses2 = poses1;
 
 tracks = containers.Map('KeyType','uint64','ValueType','any');
 update_tracks(fullfile('/home/kreimer/KITTI/tracks',sequence, sprintf('%06d.txt',p.Results.first-2)), tracks);
+
+if p.Results.compute_rig_bias
+    dr = nan(4,100);
+end
 
 for i = p.Results.first:p.Results.last
     fprintf('processing frame %d of %d\n', i, p.Results.last);
@@ -57,14 +86,11 @@ for i = p.Results.first:p.Results.last
     x1 = permute(coords2(1:2,1,:), [1 3 2]);
     x2 = permute(coords2(3:4,1,:), [1 3 2]);
     [X,visible] = util.triangulate_chieral(x1,x2,param.P1,param.P2);
-
-    directory = fullfile(DATA_ROOT,'data',sequence);
-    filename = fullfile(directory, [sprintf('%06d',i),'.mat']);
-    if ~exist(directory,'dir')
-        command = ['mkdir -p ', fullfile(directory)];
-        system(command);
-    end    
-    save(filename,'x1','x2','x1p','x2p','X','Xp','visible','visiblep');
+    
+    % save some stats
+    filename = fullfile(RESDATA_DIR, [sprintf('%06d',i),'.mat']);
+    save(filename,'x1','x2','x1p','x2p','X','Xp','visible','visiblep','-v7.3');
+    
     % use visibility constraint to filter wrong matches
     visible = visible&visiblep;
     x1  = x1(:,visible);
@@ -74,13 +100,11 @@ for i = p.Results.first:p.Results.last
     X   = X(:,visible);
     Xp  = Xp(:,visible);
     
-    if p.Results.run_ss
-        disp('original reprojection minimization')
-        tic;[a_ss, inliers,residual] = estimation.ransac_minimize_reproj(Xp, [x1; x2], param);toc;
-        stats(i).ss.T                = util.tr2mat(a_ss);
-        stats(i).ss.inliers          = {inliers};
-        stats(i).ss.residual         = {residual};
-    end
+    disp('algorithm: reprojection minimization')
+    tic;[a_ss, inliers,residual] = estimation.ransac_minimize_reproj(Xp, [x1; x2], param);toc;
+    stats(i).ss.T                = util.tr2mat(a_ss);
+    stats(i).ss.inliers          = {inliers};
+    stats(i).ss.residual         = {residual};
     
     %     disp('new reprojection minimization')
     %     tic; pose = estimation.ransac_min_reproj(K,param.base,Xp,x1,x2); toc;
@@ -88,129 +112,82 @@ for i = p.Results.first:p.Results.last
     
     % These methods estimate R by decomposing F and then estimate t
     % separately
-%     disp('F estimation/decomposition');
-%     tic;
-%     [TF1,F1,inliers1,residual1,success1] = estimation.rel_motion_F(K,x1p,x1);
-%     [TF2,F2,inliers2,residual2,success2] = estimation.rel_motion_F(K,x2p,x1);
-%     TF = estimation.stereo_motion_triangulate(TF1,TF2,[param.base 0 0]');
-%     toc;
-%     stats(i).F.T        = TF;
-%     stats(i).F.inliers  = {inliers1,inliers2};
-%     stats(i).F.residual = {residual1,residual2};
-%     stats(i).F.success  = {success1,success2};
+    %disp('F estimation/decomposition');
+    %     tic;
+    %     [TF1,F1,inliers1,residual1,success1] = estimation.rel_motion_F(K,x1p,x1);
+    %     [TF2,F2,inliers2,residual2,success2] = estimation.rel_motion_F(K,x2p,x1);
+    %     TF = estimation.stereo_motion_triangulate(TF1,TF2,[param.base 0 0]');
+    %     toc;
+    %     stats(i).F.T        = TF;
+    %     stats(i).F.inliers  = {inliers1,inliers2};
+    %     stats(i).F.residual = {residual1,residual2};
+    %     stats(i).F.success  = {success1,success2};
     
-    disp('H_inf estimation');
+    disp('algorithm: IO');
     tic;
     depth = X(3,:);
     if sum(depth>50)>=10
         T1 = stats(i).ss.T;
         R = T1(1:3,1:3);
         t1 = T1(1:3,4);
-        t2 = t1+R'*[param.base 0 0]';
         F1 = K'\util.skew(t1)*R/K;
-        F2 = K'\util.skew(t2)*R/K;
-        [TH1,inliers1,residual1] = estimation.rel_motion_H(K,[x1p x2p],[x1 x2],...
-            [X(3,:) X(3,:)],param.base,'F',F1,'absRotInit',true,...
-            'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
-%         [TH2,inliers2,residual2] = estimation.rel_motion_H(K,x2p,x1,X(3,:),param.base,'F',F2,'absRotInit',true,...
-%             'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
-%         TH = estimation.stereo_motion_triangulate(TH1,TH2,[param.base 0 0]');
-%         stats(i).Hg.sucess   = true;
-%         stats(i).Hg.T        = TH;
-%         stats(i).Hg.inliers  = {inliers1,inliers2};
-%         stats(i).Hg.residual = {residual1,residual2};
-        stats(i).Hg.success = true;
-        stats(i).Hg.T = TH1;
-        stats(i).Hg.inliers = inliers1;
-        stats(i).Hg.residual = residual1;
-    else
-        if p.Results.run_ss
-            stats(i).Hg.T      = stats(i).ss.T;
-            stats(i).Hg.sucess = false;
+        
+        if p.Results.mono_left
+            x_prv = x1p;
+            x_cur = x1;
+            depth = X(3,:);
+        elseif p.Results.mono_right
+            x_prv = x2p;
+            x_cur = x1;
+            depth = X(3,:);
+        elseif p.Results.stereo
+            if p.Results.correct_rig_bias
+                % bias2
+                x2p_corrected = util.h2e(H_bias*util.e2h(x2p));
+                x2_corrected  = util.h2e(H_bias*util.e2h(x2));
+
+                x_prv = [x1p x2p_corrected];
+                x_cur = [x1 x2_corrected];
+            else
+                x_prv = [x1p x2p];
+                x_cur = [x1 x2];
+            end
+            depth = [X(3,:) X(3,:)];
         else
-            [a_ss,~,~] = estimation.ransac_minimize_reproj(Xp, [x1; x2], param);
-            stats(i).Hg.T = util.tr2mat(a_ss);
-            stats(i).Hg.sucess = false;
+            error('you need to specify either mono_left or mono_right or stereo');
         end
+        [R1,~,~] = estimation.rel_motion_H(K,x_prv,x_cur,depth,param.base,'F',F1,'absRotInit',true,...
+            'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
+        
+        if p.Results.compute_rig_bias
+            if ~p.Results.mono_left
+                error('configuration error: compute_rig_bias works only with mono_left');
+            end
+            
+            if p.Results.correct_rig_bias
+                x2p_corrected = util.h2e(H_bias*util.e2h(x2p));
+                x2_corrected  = util.h2e(H_bias*util.e2h(x2));                
+                [R2,~,~] = estimation.rel_motion_H(K,x2p_corrected,x2_corrected,depth,param.base,'F',F1,'absRotInit',true,...
+                    'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
+            else
+                [R2,~,~] = estimation.rel_motion_H(K,x2p,x2,depth,param.base,'F',F1,'absRotInit',true,...
+                    'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
+            end
+            
+            delta = R1*R2';
+            dr(:,i) = vrrotmat2vec(delta);
+        end
+        
+        [t,~,inliers] = estimation.ransac_minimize_reproj1(Xp,R1,x1,x2,param);
+        stats(i).HX.T = [R1 t; 0 0 0 1];
+        stats(i).HX.inliers = inliers;
+        stats(i).HX.success = true;
+    else
+        stats(i).HX.T      = stats(i).ss.T;
+        stats(i).HX.sucess = false;
     end
     toc;
-    
-    stats(i).Hs.T        = stats(i).Hg.T;
-    stats(i).Hs.T(1:3,4) = stats(i).ss.T(1:3,4);
-    
-    disp('One point translation estimation');
-    R = stats(i).Hg.T(1:3,1:3);
-    tic;[t,~,inliers] = estimation.ransac_minimize_reproj1(Xp,R,x1,x2,param);toc;
-    stats(i).HX.T = [R t; 0 0 0 1];    
-    stats(i).HX.inliers = inliers;
-    
-    st = stats(i);
-    save(filename,'st','-append');
-    
-    % refinement
-    if 0
-        if i>3
-            coords3 = get_track_coords(tracks,3);
-            e = null(F);
-            [ratio, sigma] = estimation.cross_ratio(coords3, e);
-            
-            tr1.T = stats(i).no_opt_F.T2;
-            tr1.x1= stats(i).no_opt_F.x1;
-            tr1.x2= stats(i).no_opt_F.x2;
-            
-            tr2.T = stats(i-1).no_opt_F.T2;
-            tr2.x1= stats(i-1).no_opt_F.x1;
-            tr2.x2= stats(i-1).no_opt_F.x2;
-            
-            fun = @(c) estimation.objective1(1,K, param.base,...
-                tr1, tr2, ratio, sigma, c);
-            [c, ~, exitflag] = lsqnonlin(fun, [1 1]);
-            T = inv(stats(i).no_opt_F.T);
-            T(1:3,4) = c(2)*T(1:3,4);
-            field = ['objective1_w_',strrep(num2str(w),'.','')];
-            %update the results
-            stats(i).(field).T = inv(T);
-            %
-            %             continue;
-            %             %operating points
-            %             T  = {inv(est1(i-1).T_final), inv(est1(i).T_final)};
-            %             T1 = T{1}; R1 = T1(1:3,1:3); t1 = T1(1:3,4)';
-            %             T2 = T{2}; R2 = T2(1:3,1:3); t2 = T2(1:3,4)';
-            %             c0 = [0 0 0 t1 0 0 0 t2];
-            %             h0(1,:) = quaternion.rotationmatrix(R1).e;
-            %             h0(2,:) = quaternion.rotationmatrix(R2).e;
-            %             x   = {x1, x2, x3, x4};
-            %             fun = @(c) objective2(w(j), t0, x, ratio, sigma, h0, c);
-            %             [c, ~, exitflag] = lsqnonlin(fun, c0);
-            %
-            %             R = quaternion(param2quaternion(c(7:9)', h0(2,:)')).RotationMatrix;
-            %             t = c(10:12)';
-            %             T = [R t; 0 0 0 1];
-            %
-            %             field = ['w2_',num2str(j)];
-            %             if ~isfield(stats, field)
-            %                 stats(i).(field) = struct('c',[],...
-            %                     'c_prv',[],...
-            %                     'w',[],...
-            %                     'exitflag',[],...
-            %                     'T',[]);
-            %                 results{end+1} = field;
-            %             end
-            %
-            %             update the results
-            %             stats(i).(field).c = c;
-            %             stats(i).(field).w = w(j);
-            %             stats(i).(field).exitflag = exitflag;
-            %             stats(i).(field).T = inv(T);
-            %         end
-        else
-            for j=1:1
-                field = ['objective1_w_',strrep(num2str(w),'.','')];
-                stats(i).(field).T = stats(i).no_opt_F.T;
-            end
-        end
-    end
-    
+    save(filename,'stats','-append','-v7.3');
     % convert all poses to be relative to the world origin and save
     fields = fieldnames(stats);
     for ii=1:length(fields)
@@ -230,6 +207,23 @@ for i = p.Results.first:p.Results.last
         util.savePoses(filename, poses);
     end
 end
+
+if p.Results.compute_rig_bias
+    dr(:,1) = [];
+    save(sprintf('deltas_%s_%s', sequence, p.Results.sha),'dr','-v7.3');
+    
+    dR = cell(1,size(dr,2));
+    for i=1:size(dr,2)
+        dR{i} = vrrotvec2mat(dr(:,i));
+    end
+    
+    sample = dr(3,:) < -.9;
+    fprintf('sample size: %d\n', sum(sample));
+    X = karcher_mean(dR(sample));
+    scatter(dr(1,:),dr(2,:));
+    save(sprintf('bias_%s_%s', sequence, p.Results.sha),'X','-v7.3');
+end
+
 end
 
 function plot_circles(px, x, i1, pi1, i2, pi2)

@@ -69,6 +69,8 @@ if p.Results.compute_rig_bias
     dr = nan(4,100);
 end
 
+first = true;
+
 for i = p.Results.first:p.Results.last
     fprintf('processing frame %d of %d\n', i, p.Results.last);
     
@@ -88,7 +90,7 @@ for i = p.Results.first:p.Results.last
     [X,visible] = util.triangulate_chieral(x1,x2,param.P1,param.P2);
     
     % save some stats
-    filename = fullfile(RESDATA_DIR, [sprintf('%06d',i),'.mat']);
+    filename = fullfile(RESDATA_DIR,'stats.mat');
     save(filename,'x1','x2','x1p','x2p','X','Xp','visible','visiblep','-v7.3');
     
     % use visibility constraint to filter wrong matches
@@ -156,8 +158,14 @@ for i = p.Results.first:p.Results.last
         else
             error('you need to specify either mono_left or mono_right or stereo');
         end
-        [R1,~,~] = estimation.rel_motion_H(K,x_prv,x_cur,depth,param.base,'F',F1,'absRotInit',true,...
-            'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
+        
+        if first
+            [R1,~,~] = estimation.rel_motion_H(K,x_prv,x_cur,depth,param.base,'F',F1,'absRotInit',true,...
+                'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
+        else
+            [R1,~,~] = estimation.rel_motion_H(K,x_prv,x_cur,depth,param.base,'F',Fp,'absRotInit',true,...
+                'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
+        end
         
         if p.Results.compute_rig_bias
             if ~p.Results.mono_left
@@ -186,8 +194,13 @@ for i = p.Results.first:p.Results.last
         stats(i).HX.T      = stats(i).ss.T;
         stats(i).HX.sucess = false;
     end
+    
+    t = stats(i).HX.T(1:3,4);
+    R = stats(i).HX.T(3:3,3:3);
+    Fp = K'\util.skew(t)*R/K;
+    
     toc;
-    save(filename,'stats','-append','-v7.3');
+    save(filename,'stats','-append');
     % convert all poses to be relative to the world origin and save
     fields = fieldnames(stats);
     for ii=1:length(fields)
@@ -206,6 +219,7 @@ for i = p.Results.first:p.Results.last
         end
         util.savePoses(filename, poses);
     end
+    first = false;
 end
 
 if p.Results.compute_rig_bias
@@ -223,7 +237,6 @@ if p.Results.compute_rig_bias
     scatter(dr(1,:),dr(2,:));
     save(sprintf('bias_%s_%s', sequence, p.Results.sha),'X','-v7.3');
 end
-
 end
 
 function plot_circles(px, x, i1, pi1, i2, pi2)

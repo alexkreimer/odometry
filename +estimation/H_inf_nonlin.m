@@ -48,23 +48,25 @@ for i = 1:p.Results.ransac_iter
         vt0 = zeros(1,3);
     end
 
-    if ~isempty(p.Results.F)
-        fun = @(vt) objective1(K,p.Results.F,x1(:,sample),x2(:,sample),vt);
-    else
-        fun = @(vt) objective2(K,x1(:,sample),x2(:,sample),vt);
-    end
-
-    [vt,resnorm,result,exitflag,output] = lsqnonlin(fun,vt0,[],[],opt);
-    R = vrrotvec2mat(estimation.vtheta2r(vt));
+%     if ~isempty(p.Results.F)
+%         fun = @(vt) objective1(K,p.Results.F,x1(:,sample),x2(:,sample),vt);
+%     else
+%         fun = @(vt) objective2(K,x1(:,sample),x2(:,sample),vt);
+%     end
+% 
+%     [vt,resnorm,result,exitflag,output] = lsqnonlin(fun,vt0,[],[],opt);
+%     R = vrrotvec2mat(estimation.vtheta2r(vt));
     %fprintf('homography symm reprojection error RMS is %g\n',sqrt(d*d'/length(d)));
-    H = K*R/K;
+%     H = K*R/K;
+    H = K*regParams.R/K;
     inliers = util.homogdist2d(H,x1,x2,thr2);
     support_size = length(inliers);
     %fprintf('support size: %d\n',support_size);
     if support_size>max_size
         max_size = support_size;
         inliers_best = inliers;
-        vt_best = vt;
+        %vt_best = vt;
+        vt_best = vt0;
     end
 end
 
@@ -97,10 +99,10 @@ function val = objective1(K,F,x1,x2,vtheta)
 r = estimation.vtheta2r(vtheta);
 R = vrrotvec2mat(r);
 H = K*R/K;
+
 e1 = util.h2e(x2)-util.h2e(H*x1);
 e2 = util.h2e(x1)-util.h2e(H\x2);
 if norm(F)>1e-5
-    
     l1 = F*x1;
     l1 = l1./repmat(util.colnorm(l1(1:2,:)),[3 1]);
     e1_ortho = diag(l1(1:2,:)'*e1);
@@ -117,10 +119,65 @@ end
 end
 
 function val = objective2(K,x1,x2,vtheta)
+
+% convert v*\theta into [v \theta]
+vec = estimation.vtheta2r(vtheta);
+R = vrrotvec2mat(vec);
+
+% H_inf
+H = K*R/K;
+
+% residuals
+e1 = util.h2e(x2)-util.h2e(H*x1);
+e2 = util.h2e(x1)-util.h2e(H\x2);
+
+% objective value
+val = [util.colnorm(e1); util.colnorm(e2)]';
+end
+
+function val = objective3(K,F,x1,x2,vtheta)
 r = estimation.vtheta2r(vtheta);
 R = vrrotvec2mat(r);
 H = K*R/K;
+
+ex1 = util.h2e(x1);
+ex2 = util.h2e(x2);
+
+Hx1 = util.h2e(H*x1);
+Hix2= util.h2e(H\x2);
+
+figure; hold on;
+plot([ex1(1,:); Hix2(1,:)],[ex1(2,:); Hix2(2,:)],'b--o');
+
 e1 = util.h2e(x2)-util.h2e(H*x1);
 e2 = util.h2e(x1)-util.h2e(H\x2);
-val = [util.colnorm(e1); util.colnorm(e2)]';
+
+epipole  = util.h2e(null(F));
+plot(epipole(1),epipole(2),'r*');
+
+epilines = epipolarLine(F,ex1');
+points = lineToBorderPoints(epilines, [376 1241]);
+line(points(:, [1,3])', points(:, [2,4])');
+
+epipole  = util.h2e(null(F'));
+plot(epipole(1),epipole(2),'r*');
+
+epilines = epipolarLine(F',ex1');
+points = lineToBorderPoints(epilines, [376 1241]);
+line(points(:, [1,3])', points(:, [2,4])');
+
+if norm(F)>1e-5
+    l1 = F*x1;
+    l1 = l1./repmat(util.colnorm(l1(1:2,:)),[3 1]);
+    e1_ortho = diag(l1(1:2,:)'*e1);
+
+    l2 = F'*x2;
+    l2 = l2./repmat(util.colnorm(l2(1:2,:)),[3 1]);
+    e2_ortho = diag(l2(1:2,:)'*e2);
+    
+    val = [e1_ortho.*e1_ortho; e2_ortho.*e2_ortho]';
+else
+    val = [util.colnorm(e1); util.colnorm(e2)]';
 end
+end
+

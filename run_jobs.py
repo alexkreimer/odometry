@@ -5,7 +5,9 @@ from multiprocessing import Pool
 import subprocess
 
 def run_job(args):
+    print('starting', args)
     subprocess.call(args)
+    print('done', args)
 
 if __name__ == '__main__':
     with open(sys.argv[1], 'r') as fp:
@@ -13,9 +15,9 @@ if __name__ == '__main__':
 
     params = itertools.product(jobs['sequences'], jobs['depths'],
                                jobs['inlier_thrs'], jobs['ransac_iter'],
-                               (jobs['mono_left'],))
+                               (jobs['mono_left'],), (jobs['sha'],))
 
-    job_args = [('matlab', '-nodisplay', '-nosplash', '-r', "run_sequence('%s','depth_thr',%d,'inlier_thr',%d,'ransac_iter',%d, 'mono_left', %d); exit;" % p, '>', '/home/kreimer/KITTI/out_seq%s_depth%d_inlier%d_ransac%d_mono%d' % p, '2>&1') for p in params]
+    job_args = [('matlab', '-nodisplay', '-nosplash', '-r', "run_sequence('%s','depth_thr',%d,'inlier_thr',%d,'ransac_iter',%d, 'mono_left', %d, 'sha', '%s'); exit;" % p, '>', '/home/kreimer/KITTI/out_seq%s_depth%d_inlier%d_ransac%d_mono%d_%s' % p, '2>&1') for p in params]
 
     p = Pool(7)
     p.map(run_job, job_args)

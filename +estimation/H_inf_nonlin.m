@@ -31,10 +31,6 @@ s        = 3;
 max_size = -1;
 thr2     = p.Results.inlier_thr;
 
-opt = optimset(optimset('lsqnonlin'),...
-    'Algorithm','levenberg-marquardt',...
-    'Diagnostics','off','Display','off');
-
 for i = 1:p.Results.ransac_iter
     sample = randsample(num_pts,s);
     p1 = normc(K\x1(:,sample));
@@ -48,24 +44,13 @@ for i = 1:p.Results.ransac_iter
         vt0 = zeros(1,3);
     end
 
-%     if ~isempty(p.Results.F)
-%         fun = @(vt) objective1(K,p.Results.F,x1(:,sample),x2(:,sample),vt);
-%     else
-%         fun = @(vt) objective2(K,x1(:,sample),x2(:,sample),vt);
-%     end
-% 
-%     [vt,resnorm,result,exitflag,output] = lsqnonlin(fun,vt0,[],[],opt);
-%     R = vrrotvec2mat(estimation.vtheta2r(vt));
-    %fprintf('homography symm reprojection error RMS is %g\n',sqrt(d*d'/length(d)));
-%     H = K*R/K;
     H = K*regParams.R/K;
     inliers = util.homogdist2d(H,x1,x2,thr2);
     support_size = length(inliers);
-    %fprintf('support size: %d\n',support_size);
+
     if support_size>max_size
         max_size = support_size;
         inliers_best = inliers;
-        %vt_best = vt;
         vt_best = vt0;
     end
 end

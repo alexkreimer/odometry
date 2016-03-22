@@ -52,8 +52,8 @@ K = param.K;
 
 if p.Results.correct_rig_bias
     load(sprintf('bias_%s', sequence));
-    load bias_fake;
     H_bias = K*X/K;
+    vrrotmat2vec(X)
 end
 
 gt = process_gt(poses_gt);
@@ -174,9 +174,16 @@ for i = p.Results.first:p.Results.last
             
             if p.Results.correct_rig_bias
                 x2p_corrected = util.h2e(H_bias*util.e2h(x2p));
-                x2_corrected  = util.h2e(H_bias*util.e2h(x2));                
+                x2_corrected  = util.h2e(H_bias*util.e2h(x2));
                 [R2,~,~] = estimation.rel_motion_H(K,x2p_corrected,x2_corrected,depth,param.base,'F',F1,'absRotInit',true,...
                     'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
+                
+                [R2t,~,~] = estimation.rel_motion_H(K,x2p,x2,depth,param.base,'F',F1,'absRotInit',true,...
+                    'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
+                
+            delta = R2t*R2';
+            vrrotmat2vec(delta)
+
             else
                 [R2,~,~] = estimation.rel_motion_H(K,x2p,x2,depth,param.base,'F',F1,'absRotInit',true,...
                     'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
@@ -219,7 +226,7 @@ for i = p.Results.first:p.Results.last
         end
         util.savePoses(filename, poses);
     end
-    first = false;
+    %first = false;
 end
 
 if p.Results.compute_rig_bias

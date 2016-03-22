@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import json
 import sys
 import itertools
@@ -15,9 +17,9 @@ if __name__ == '__main__':
 
     params = itertools.product(jobs['sequences'], jobs['depths'],
                                jobs['inlier_thrs'], jobs['ransac_iter'],
-                               (jobs['mono_left'],), (jobs['sha'],))
+                               (jobs['mono_left'],), (jobs['sha'],), (jobs['stereo'],))
 
-    job_args = [('matlab', '-nodisplay', '-nosplash', '-r', "run_sequence('%s','depth_thr',%d,'inlier_thr',%d,'ransac_iter',%d, 'mono_left', %d, 'sha', '%s'); exit;" % p, '>', '/home/kreimer/KITTI/out_seq%s_depth%d_inlier%d_ransac%d_mono%d_%s' % p, '2>&1') for p in params]
+    job_args = [('matlab', '-nodisplay', '-nosplash', '-r', "run_sequence('%s','depth_thr',%d,'inlier_thr',%d,'ransac_iter',%d, 'mono_left', %d, 'sha', '%s', 'stereo', %d); exit;" % p, '>', '/home/kreimer/KITTI/out_seq%s_depth%d_inlier%d_ransac%d_mono%d_%s_stereo%d' % p, '2>&1') for p in params]
 
     p = Pool(7)
     p.map(run_job, job_args)

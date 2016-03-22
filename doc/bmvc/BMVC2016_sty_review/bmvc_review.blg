@@ -1,0 +1,56 @@
+This is BibTeX, Version 0.99d (TeX Live 2013/Debian)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: bmvc_review.aux
+The style file: plainnat.bst
+Database file #1: egbib.bib
+Warning--I didn't find a database entry for "geiger2013vision"
+Warning--I didn't find a database entry for "Forstner"
+Warning--there's a number but no volume in Badino2013
+Warning--empty journal in Scaramuzza2011
+Warning--there's a number but no volume in Scaramuzza2011
+Warning--there's a number but no volume in Shi1994
+Warning--empty journal in Song
+Warning--empty year in Song
+Warning--empty year in Song
+You've used 25 entries,
+            2773 wiz_defined-function locations,
+            826 strings with 10526 characters,
+and the built_in function-call counts, 12777 in all, are:
+= -- 1273
+> -- 605
+< -- 21
++ -- 205
+- -- 180
+* -- 1020
+:= -- 1934
+add.period$ -- 119
+call.type$ -- 25
+change.case$ -- 135
+chr.to.int$ -- 25
+cite$ -- 57
+duplicate$ -- 584
+empty$ -- 1006
+format.name$ -- 221
+if$ -- 2731
+int.to.chr$ -- 1
+int.to.str$ -- 1
+missing$ -- 25
+newline$ -- 177
+num.names$ -- 100
+pop$ -- 214
+preamble$ -- 1
+purify$ -- 110
+quote$ -- 0
+skip$ -- 470
+stack$ -- 0
+substring$ -- 612
+swap$ -- 99
+text.length$ -- 8
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 275
+warning$ -- 7
+while$ -- 121
+width$ -- 0
+write$ -- 415
+(There were 9 warnings)

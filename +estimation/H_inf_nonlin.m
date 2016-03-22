@@ -10,7 +10,7 @@ p = inputParser;
 p.addOptional('absRotInit',false);
 p.addOptional('F',[]);
 p.addOptional('inlier_thr',1,@isnumeric);
-p.addOptional('ransac_iter',100,@isnumeric);
+p.addOptional('ransac_iter',500,@isnumeric);
 
 p.KeepUnmatched = true;
 

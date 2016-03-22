@@ -8,7 +8,7 @@ function [R,inliers,residual] = rel_motion_H(K,x1,x2,d,b,varargin)
 p = inputParser;
 p.KeepUnmatched = true;
 
-p.addOptional('depth_thr',100,@isnumeric);
+p.addOptional('depth_thr',150,@isnumeric);
 parse(p,varargin{:});
 depthThr = p.Results.depth_thr;
 

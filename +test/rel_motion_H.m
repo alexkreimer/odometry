@@ -1,4 +1,4 @@
-function rel_motion_H(num_pts, z_max, z_min)
+function rel_motion_H(num_pts, z_max, z_min, titl)
 
 close all;
 dbstop if error;
@@ -8,6 +8,9 @@ K = [718.8560,  0,      607.1928;
     0,     718.8560, 185.2157;
     0,       0,        1.0000];       % camera intrinsics
 
+K = [718.8560,  0,      0;
+    0,     718.8560,    0;
+    0,       0,        1.0000]; 
 % R0/t0 is the orientation/origin of the right camera as seen from the left camera
 baseline            = [.5;0;0];
 Id                  = eye(3);
@@ -23,20 +26,10 @@ param.lm_max_iter   = 1000;
 param.inlier_thresh = 3;
 P1                  = K*[Id zeros(3,1)];     % left camera
 
-x_max = .02*z_max;
-brk = 20;
-num_pts = num_pts - brk;
-X(1,:) = -x_max + (x_max-(-x_max))*rand(1, num_pts); % 3d points, as seen in the world frame
-X(2,:) = -x_max + (x_max-(-x_max))*rand(1, num_pts);
+x_max = 10;
+X(1,:) = x_max*rand(1, num_pts); % 3d points, as seen in the world frame
+X(2,:) = x_max*rand(1, num_pts);
 X(3,:) = z_min + (z_max-z_min)*rand(1, num_pts);
-
-X_close(1,:) = -x_max + (x_max-(-x_max))*rand(1, brk); % 3d points, as seen in the world frame
-X_close(2,:) = -x_max + (x_max-(-x_max))*rand(1, brk);
-X_close(3,:) = 2 + (5-2)*rand(1, brk);
-
-X = [X X_close];
-
-num_pts = num_pts + brk;
 
 % allocate image projections
 x      = nan(2*num_frames, 2*num_pts);
@@ -52,7 +45,7 @@ e      = nan(2,N,2);
 e_gt = nan(2,num_frames-1);
 
 % generate camera motion
-R      = rotx(.2*rand)*roty(.2*rand);
+R      = rotx(.2*rand)*roty(.2*rand)*rotz(.2*rand);
 t      = [.5*rand .5*rand .5+rand]';
 R_gt   = R';
 t_gt   = -R'*t;
@@ -81,10 +74,33 @@ names = {'F','no-F'};
 e = nan(2,N,n);
 r = nan(9,N,n);
 
+x1 = x(1:2, 1:num_pts); x1r = x(1:2,(num_pts+1):(2*num_pts));
+x2 = x(3:4, 1:num_pts); x2r = x(3:4,(num_pts+1):(2*num_pts));
+
+F = K'\util.skew(t_gt)*R_gt/K;
+    
+figure;
+hold on;
+title(titl);
+scatter(x1(1,:),x1(2,:));
+scatter(x2(1,:),x2(2,:));
+
+e = util.h2e(null(F'));
+
+plot(e(1),e(2),'r*');
+
+H = K*R_gt/K;
+Hx1 = util.h2e(H*util.e2h(x1));
+scatter(Hx1(1,:),Hx1(2,:));
+
+legend('First image','Second image','epipole','Hx1: Homography transformed features');
+
+epilines = epipolarLine(F,x1');
+points = lineToBorderPoints(epilines, [800 1241]);
+line(points(:, [1,3])', points(:, [2,4])');
+% print('-depsc','-tiff','feature_motion')
 for i=1:N
     fprintf('experiment %d\n', i);
-    x1 = x(1:2, 1:num_pts); x1r = x(1:2,(num_pts+1):(2*num_pts));
-    x2 = x(3:4, 1:num_pts); x2r = x(3:4,(num_pts+1):(2*num_pts));
     
     figure(h); subplot(231);
     for j=1:num_pts
@@ -97,8 +113,7 @@ for i=1:N
         x2 = x2 + 2*randn(size(x2));
     end
 
-    plot([x1(1,:); x2(1,:)], [x1(2,:); x2(2,:)]);
-    F = K'\util.skew(t_gt)*R_gt/K;
+
     disp(names{1});
     save('R','R_gt');
     tic;[T, ~] = estimation.rel_motion_H(K,x1,x2,X(3,:),1,100,'absRotInit',true);toc;

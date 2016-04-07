@@ -11,6 +11,9 @@ poses_file = fullfile(KITTI_HOME, 'poses', [sequence, '.txt']);
 D = dir(fullfile(image_dir, 'image_0','*.png'));
 default_last = length(D(not([D.isdir])))-1;
 
+% distance threshold in meters
+dist_thresh = 50;
+
 p = inputParser;
 p.addOptional('first',2,@isnumeric);
 p.addOptional('last',default_last,@isnumeric);
@@ -23,9 +26,14 @@ p.addOptional('mono_right',0,@isnumeric);
 p.addOptional('stereo',0,@isnumeric);
 p.addOptional('compute_rig_bias',0,@isnumeric);
 p.addOptional('correct_rig_bias',0,@isnumeric);
+p.addOptional('Fp',0,@isnumeric);
+p.addOptional('monomono',0,@isnumeric);
 
 p.KeepUnmatched = true;
 parse(p,varargin{:});
+
+% minimal number of distant points; if there are less, run stereo scan
+NUM_DIST_THRESH = 10;
 
 if p.Results.mono_left
     str = 'mono_left';
@@ -33,6 +41,8 @@ elseif p.Results.mono_right
     str = 'mono_right';
 elseif p.Results.stereo
     str = 'stereo';
+elseif p.Results.monomono
+    str = 'monomono';
 else
     error('you need to specify either mono_left or mono_right or stereo');
 end
@@ -81,6 +91,19 @@ for i = p.Results.first:p.Results.last
     
     coords2 = get_track_coords(tracks,2);
     
+    if ~first
+        coords3 = get_track_coords(tracks, 3);
+
+        % tracks of length 3
+        if size(coords3, 3)
+            tr3.x_ppv = permute(coords3(1:2,3,:), [1 3 2]);
+            tr3.x_prv = x1p;
+            tr3.x_cur = x1;
+        else
+            tr3.x_ppv = [];
+        end
+    end
+
     x1p = permute(coords2(1:2,2,:), [1 3 2]);
     x2p = permute(coords2(3:4,2,:), [1 3 2]);
     [Xp,visiblep] = util.triangulate_chieral(x1p,x2p,param.P1,param.P2);
@@ -88,6 +111,11 @@ for i = p.Results.first:p.Results.last
     x1 = permute(coords2(1:2,1,:), [1 3 2]);
     x2 = permute(coords2(3:4,1,:), [1 3 2]);
     [X,visible] = util.triangulate_chieral(x1,x2,param.P1,param.P2);
+    
+    % in mono setting we can not rely on triangulatin to filter outliers,
+    % so we keep the original matches
+    tr2.x_prv = x1p;
+    tr2.x_cur = x1;
     
     % save some stats
     filename = fullfile(RESDATA_DIR,'stats.mat');
@@ -108,98 +136,84 @@ for i = p.Results.first:p.Results.last
     stats(i).ss.inliers          = {inliers};
     stats(i).ss.residual         = {residual};
     
-    %     disp('new reprojection minimization')
-    %     tic; pose = estimation.ransac_min_reproj(K,param.base,Xp,x1,x2); toc;
-    %     stats(i).ss1.T = pose;
-    
-    % These methods estimate R by decomposing F and then estimate t
-    % separately
-    %disp('F estimation/decomposition');
-    %     tic;
-    %     [TF1,F1,inliers1,residual1,success1] = estimation.rel_motion_F(K,x1p,x1);
-    %     [TF2,F2,inliers2,residual2,success2] = estimation.rel_motion_F(K,x2p,x1);
-    %     TF = estimation.stereo_motion_triangulate(TF1,TF2,[param.base 0 0]');
-    %     toc;
-    %     stats(i).F.T        = TF;
-    %     stats(i).F.inliers  = {inliers1,inliers2};
-    %     stats(i).F.residual = {residual1,residual2};
-    %     stats(i).F.success  = {success1,success2};
-    
     disp('algorithm: IO');
-    tic;
-    depth = X(3,:);
-    if sum(depth>50)>=10
-        T1 = stats(i).ss.T;
-        R = T1(1:3,1:3);
-        t1 = T1(1:3,4);
-        F1 = K'\util.skew(t1)*R/K;
-        
+    if p.Results.monomono
+        if first
+            x_prv = tr2.x_prv;
+            x_cur = tr2.x_cur;
+            [mask, num_dist] = choose_distant_stereo(X, dist_thresh);
+        else
+            % no depth information available
+            x_prv = tr2.x_prv;
+            x_cur = tr2.x_cur;
+            [mask, num_dist]  = choose_distant_mono(x_prv, x_cur, Hp, dist_thresh);
+        end
+    else
+        tic;
+        [mask, num_dist] = choose_distant_stereo(X, dist_thresh);
         if p.Results.mono_left
+            % mono emulation
             x_prv = x1p;
             x_cur = x1;
-            depth = X(3,:);
         elseif p.Results.mono_right
             x_prv = x2p;
             x_cur = x1;
-            depth = X(3,:);
         elseif p.Results.stereo
-            if p.Results.correct_rig_bias
-                % bias2
-                x2p_corrected = util.h2e(H_bias*util.e2h(x2p));
-                x2_corrected  = util.h2e(H_bias*util.e2h(x2));
-
-                x_prv = [x1p x2p_corrected];
-                x_cur = [x1 x2_corrected];
-            else
-                x_prv = [x1p x2p];
-                x_cur = [x1 x2];
-            end
-            depth = [X(3,:) X(3,:)];
+            x_prv = [x1p x2p];
+            x_cur = [x1 x2];
         else
             error('you need to specify either mono_left or mono_right or stereo');
         end
-        
-        if first
-            [R1,~,~] = estimation.rel_motion_H(K,x_prv,x_cur,depth,param.base,'F',F1,'absRotInit',true,...
-                'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
-        else
-            [R1,~,~] = estimation.rel_motion_H(K,x_prv,x_cur,depth,param.base,'F',Fp,'absRotInit',true,...
-                'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
-        end
-        
-        if p.Results.compute_rig_bias
-            if ~p.Results.mono_left
-                error('configuration error: compute_rig_bias works only with mono_left');
-            end
-            
-            if p.Results.correct_rig_bias
-                x2p_corrected = util.h2e(H_bias*util.e2h(x2p));
-                x2_corrected  = util.h2e(H_bias*util.e2h(x2));
-                [R2,~,~] = estimation.rel_motion_H(K,x2p_corrected,x2_corrected,depth,param.base,'F',F1,'absRotInit',true,...
-                    'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
-                
-                [R2t,~,~] = estimation.rel_motion_H(K,x2p,x2,depth,param.base,'F',F1,'absRotInit',true,...
-                    'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
-                
-            delta = R2t*R2';
-            vrrotmat2vec(delta)
+    end
+    
+    if num_dist >= NUM_DIST_THRESH
+        % SS computed fundamental
+        F1 = trans2fund(stats(i).ss.T, K);
 
+        % choose fundametal to use for the rotation estimation
+        if p.Results.Fp
+            if first
+                F = F1;
             else
-                [R2,~,~] = estimation.rel_motion_H(K,x2p,x2,depth,param.base,'F',F1,'absRotInit',true,...
-                    'depth_thr',p.Results.depth_thr,'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
+                F = Fp;
             end
-            
-            delta = R1*R2';
-            dr(:,i) = vrrotmat2vec(delta);
+        else
+            F = F1;
+        end
+
+        % estimate rotation
+        [Hp, R, ~, ~] = estimation.H_inf_nonlin(K,x_prv,x_cur,mask,'F',F,'absRotInit',true,...
+                    'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
+
+        if p.Results.monomono
+            if first
+                t = stats(i).ss.T(1:3,4);
+                t = normc(t);
+            else
+                % previous motion estimates
+                Rp = stats(i-1).HX.R;
+                tp = stats(i-1).HX.t;
+                
+                % compose camera matrices
+                P1 = K*[eye(3) zeros(3,1)];
+                P2 = K*[Rp tp];
+                
+                % triangulate points
+                [Xp, ~] = util.triangulate_chieral(tr3.x_ppv,tr3.x_prv,P1,P2);
+                
+                % minimize reprojection errors
+                [t,~,inliers] = estimation.ransac_minimize_reproj1(Xp, R, tr3.x_cur, param);
+            end
+        else
+            [t,~,inliers] = estimation.ransac_minimize_reproj1(Xp,R1,x1,x2,param);
         end
         
-        [t,~,inliers] = estimation.ransac_minimize_reproj1(Xp,R1,x1,x2,param);
-        stats(i).HX.T = [R1 t; 0 0 0 1];
+        stats(i).HX.T = [R t; 0 0 0 1];
         stats(i).HX.inliers = inliers;
         stats(i).HX.success = true;
     else
         stats(i).HX.T      = stats(i).ss.T;
-        stats(i).HX.sucess = false;
+        stats(i).HX.success= false;
     end
     
     t = stats(i).HX.T(1:3,4);
@@ -226,7 +240,10 @@ for i = p.Results.first:p.Results.last
         end
         util.savePoses(filename, poses);
     end
-    %first = false;
+    
+    if p.Results.Fp
+        first = false;
+    end
 end
 
 if p.Results.compute_rig_bias
@@ -329,3 +346,31 @@ end
 
 end
 
+function F = trans2fund(T, K)
+% compose the Fundamental matrix from the transformation parameters
+
+T1 = T;
+R  = T1(1:3,1:3);
+t1 = T1(1:3,4);
+F  = K'\util.skew(t1)*R/K;
+end
+
+
+function [mask, num_dist] = choose_distant_mono(x_prv, x_cur, Hp, thresh)
+    Hx_prv = util.h2e(Hp*util.e2h(x_prv));
+    
+    delta = util.colnorm(Hx_prv-x_cur);
+    mask = delta<thresh;
+    
+    if nargout > 1
+        num_dist = sum(mask);
+    end
+end
+
+function [mask, num_dist] = choose_distant_stereo(X, thresh)
+    mask = X(3,:) > thresh;
+    if nargout > 1
+        num_dist = sum(mask);
+    end
+    
+end

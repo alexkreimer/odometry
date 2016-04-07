@@ -1,25 +1,44 @@
 #!/usr/bin/python
-
+from __future__ import print_function
 import json
 import sys
 import itertools
 from multiprocessing import Pool
 import subprocess
+import uuid
 
 def run_job(args):
-    print('starting', args)
+    print('starting', ' '.join(args))
     subprocess.call(args)
-    print('done', args)
+    print('done', ' '.join(args))
 
 if __name__ == '__main__':
     with open(sys.argv[1], 'r') as fp:
-        jobs = json.load(fp)
+        data = json.load(fp)
 
-    params = itertools.product(jobs['sequences'], jobs['depths'],
-                               jobs['inlier_thrs'], jobs['ransac_iter'],
-                               (jobs['mono_left'],), (jobs['sha'],), (jobs['stereo'],))
+    cmd = "run_sequence(%s); exit;"
+    args = []
+    for jobs in data:
+        opts = jobs['options']
+        opt_list = []
+        for opt, val in opts.iteritems():
+            if type(val) == int:
+                opt_list.append("'%s',%d" % (opt, val))
+            else:
+                opt_list.append("'%s','%s'" % (opt, str(val)))
+        
+        opt_str = ','.join(opt_list)
 
-    job_args = [('matlab', '-nodisplay', '-nosplash', '-r', "run_sequence('%s','depth_thr',%d,'inlier_thr',%d,'ransac_iter',%d, 'mono_left', %d, 'sha', '%s', 'stereo', %d); exit;" % p, '>', '/home/kreimer/KITTI/out_seq%s_depth%d_inlier%d_ransac%d_mono%d_%s_stereo%d' % p, '2>&1') for p in params]
+        opt_prod = itertools.product(jobs['sequences'], jobs['depths'], jobs['inlier_thrs'],
+                                     jobs['ransac_iter'])
+        opt_list = ["'%s','depth_thr',%d,'inlier_thr',%d,'ransac_iter',%d" % opt for opt in opt_prod]
+
+        final_opts = ['%s,%s' % (opt, opt_str) for opt in opt_list]
+
+        for opt in final_opts:
+            out_file = uuid.uuid4()
+            args.append(('matlab', '-nodisplay', '-nosplash', '-r', cmd % opt , '>',
+                     '/home/kreimer/KITTI/out_%s' % out_file, '2>&1'))
 
     p = Pool(7)
-    p.map(run_job, job_args)
+    p.map(run_job, args)

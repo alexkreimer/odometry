@@ -42,7 +42,7 @@ e_gt = nan(2,num_frames-1);
 R      = rotx(.2*rand)*roty(.2*rand);
 t      = [.5*rand .5*rand .5+rand]';
 t      = t/norm(t);
-t      = [0 0 0]';
+%t      = [0 0 0]';
 %R = Id; t = [0 0 1]';
 dt     = [R t; 0 0 0 1];
 

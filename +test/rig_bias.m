@@ -6,6 +6,7 @@ function rig_bias(num_pts, z_max, z_min)
 close all;
 dbstop if error;
 
+dist_thr = 200;
 num_frames = 2;
 
 % KITTI intrinsics
@@ -85,20 +86,17 @@ for i=1:N
     
     depths = X(3,:);
     % left
-    tic;[T1, ~] = estimation.rel_motion_H(K,x1l,x2l,depths,base,'absRotInit',true,'F',F);toc;
+    tic;[T1, ~] = estimation.rel_motion_H(K,x1l,x2l,depths,base,'absRotInit',true,'F',F,'depth_thr',200);toc;
     r(:,i,1) = reshape(T1(1:3,1:3),[9 1]);
 
     % right
-    tic;[T2, ~] = estimation.rel_motion_H(K,x1r,x2r,depths,base,'absRotInit',true,'F',F);toc;
+    tic;[T2, ~] = estimation.rel_motion_H(K,x1r,x2r,depths,base,'absRotInit',true,'F',F,'depth_thr',200);toc;
     r(:,i,2) = reshape(T2(1:3,1:3),[9 1]);
     
     % stereo
-    perm = randperm(2*num_pts);
-    xsl = [x1r x1l];
-    xsl = xsl(:,perm);
-    xsr = [x2r x2l];
-    xsr = xsr(:,perm);
-    tic;[T3, ~] = estimation.rel_motion_H(K,xsl,xsr,depths,base,'absRotInit',true,'F',F);toc;
+    xsl = [x1l x1r];
+    xsr = [x2l x2r];
+    tic;[T3, ~] = estimation.rel_motion_H(K,xsl,xsr,[depths, depths],base,'absRotInit',true,'F',F,'depth_thr',300);toc;
     r(:,i,3) = reshape(T3(1:3,1:3),[9 1]);
 end
 
@@ -124,6 +122,6 @@ legend show;
 subplot(122); hold on;
 title('rotation errors: \theta');
 for j=1:n
-    plot(dr(4,:,j),dr(4,:,j),'o','DisplayName',names{j});
+    plot(dr(4,:,j),'o','DisplayName',names{j});
 end
 legend show;

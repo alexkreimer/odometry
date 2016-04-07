@@ -339,7 +339,7 @@ It follows that $(X,Y,Z)^T = \mathrm{K^{-1}}\mathbf{x}Z$, and:
 Now we divide both sides by $Z$ to obtain the mapping of an image point $\mathbf{x}$ to image point $\mathbf{x}'$
 
 \begin{equation}
-  \label{eq:point_motion}
+  \label{eq:general_point_motion}
   \mathbf{x}' = \mathrm{K'RK^{-1}}\mathbf{x} + \mathrm{K'}\mathbf{t}/Z = \mathrm{H}\mathbf{x}+ \mathrm{K'}\mathbf{t}/Z = \mathrm{H}\mathbf{x} + \mathbf{e'}/Z
 \end{equation}
 
@@ -403,60 +403,119 @@ to prune outliers:
 
 \subsection{Motion Estimation}
 
-First we partition all features into two sets: distant points and
-near-by points.  We do so by applying a hard threshold to the
-$Z$-coordinate of the triangulated point.  This threshold is a
-parameter to the algorithm.
+Our strategy to attack the problem is to separate it into two smaller
+sub-problems: rotation estimation and translation estimation. The
+algorithm relies on the ability to partition the points into two sets:
+distant and near-by points.  Distant points are used for rotation
+estimation while near take part in translation estimation.  To
+partition the points we hard-threshold their $Z$-coordinates (the
+threshold is a parameter of the algorithm).
 
 \paragraph{Rotation Estimation:} We use distant points to estimate
-rotation $\mathrm{R}$ (i.e., near-by points do not influence this part
-of the algorithm). The assumption is that for these points:
-\begin{equation}\label{eq:h_inf}
-\mathbf{x}' \approx \mathrm{H}_\infty\mathbf{x} = \mathrm{K'RK^{-1}}\mathbf{x}
+rotation $\mathrm{R}$ (i.e., near-by points do not take part in rotation
+estimation). As \ref{eq:general_point_motion} states:
+
+\begin{equation}
+  \mathbf{x}' = \mathrm{K'RK^{-1}}\mathbf{x} + \mathrm{K'}\mathbf{t}/Z
 \end{equation}
-The estimation algorithm has two parts: initialization and
-refinement. To initialize the rotation, we multiply both sides of
-\ref{eq:h_inf} by $\mathrm{K'^{-1}}$ and denote $\mathbf{u'} =
-\mathrm{K'^{-1}}\mathbf{x}$ and $\mathbf{u} =
+
+The total motion of the feature point in the image plane may be viewed
+as a two-step process (the order is not important): transformation by
+homography $\mathrm{H} = \mathrm{K'RK^{-1}}$ followed by displacement
+along the line defined by the epipole $e'$ and the point
+$\mathrm{H}\mathbf{x}$ (the magnitude of the displacement depends on
+the camera translation and inverse depth of the point, see
+Figure~\ref{fig:feature_motion}). Note how near features are more
+displaced along the epipolar line.
+
+\begin{figure}
+  \label{fig:feature_motion}
+  \begin{minipage}[t]{.49\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{feature_motion_near}
+    \subcaption{Near points}
+  \end{minipage}
+  \begin{minipage}[t]{.49\linewidth}
+    \centering
+    \includegraphics[width=\textwidth]{feature_motion_far}
+    \subcaption{Far points}
+  \end{minipage}
+  \caption{Total motion of the feature may be viewed as a two step
+    process: the transformation by a homography $\mathrm{H}$ which sets
+    it on the corresponding epipolar line with a subsequent motion along
+    this epipolar line.}
+\end{figure}
+
+Our estimation algorithm consists of initialization and non-linear
+refinement.  
+
+\paragraph{Initialization:} to compute the initial estimate of the rotation
+parameters we assume that
+\begin{equation}\label{eq:homography_transfer}
+\mathbf{x}' \approx \mathrm{K'RK^{-1}}\mathbf{x}
+\end{equation}
+This assumption is justified by the fact that for distant points the
+displacement along the epipolar line is rather small (e.g. if $e' =
+[600,200]^T$ and $Z = 100m$ the expected displacement is $[6,2]$
+pixels/meter ??). We multiply both sides of
+\ref{eq:homography_transfer} by $\mathrm{K'^{-1}}$ and denote
+$\mathbf{u'} = \mathrm{K'^{-1}}\mathbf{x}$ and $\mathbf{u} =
 \mathrm{K^{-1}}\mathbf{x}$:
 
 \begin{equation}
   \mathbf{u'} = \mathrm{K'^{-1}}\mathbf{x}' \approx \mathrm{RK^{-1}}\mathbf{x} = \mathrm{R}\mathbf{u}
 \end{equation}
 
-Since $u$ and $u'$ are projective quantities, only their directions
-are of importance, we normalize them to unit length and solve absolute
-orientation \cite{Horn1987} to obtain initial estimate of
-$\mathrm{R}$. Both cameras of the stereo rig undergo the same rigid
-motion (e.g., the same rotation $\mathrm{R}$ and the same translation
-$\mathbf{t}$), therefore features from both images of the stereo pair
-comply with \ref{eq:h_inf}. Thus we unify feature points from both
-images for sake of estimation (this augmentation only is possible in
-stereo setting).
+Since $\mathbf{u}$ and $\mathbf{u}'$ are projective quantities, only
+their directions are of importance, we normalize them to unit length
+and denote normalized quantities by $\mathbf{\tilde{u}}$ and
+$\mathbf{\tilde{u}}'$ respectively. We choose a sample of $n$ points
+($n=3$) and stack them as columns of matrices $\mathrm{\tilde{U}}$ and
+$\mathrm{\tilde{U}'}$ respectively.  We search for $\mathrm{R}$ that
+solves the following minimization problem:
 
-To refine the initial estimate of $\mathrm{R}$ we use non-linear
-optimization procedure.  Consider the objective:
-\begin{equation}
+\begin{equation}\label{eq:absolute_orientation}
+\underset{\mathrm{R}}{\text{argmin}}\ \norm{\mathrm{\tilde{U}'-R\tilde{U}}}_2
+\end{equation}
+
+\ref{eq:absolute_orientation} is known as absolute orientation
+problem, see \cite{Horn1987} and its solution provides an
+initial estimate for the subsequent non-linear optimization
+problem.
+
+\paragraph{Refinement:} consider the objective:
+
+\begin{equation}\label{eq:refinement_objective}
   \begin{split}
     \mathrm{R(v,\theta)} = \underset{v,\theta}{\mathrm{argmin}}
-    \sum_{i=1}^N{r_i}^2\quad \text{s.t.}\quad n_i &=
-    (\mathrm{F}x_i)_\perp \\ r_i&=n_i\cdot (x_i'-H(v,\theta)x_i)
+    \sum_{i=1}^N{r_i}^2\quad \text{s.t.}\quad r_i&=n_i\cdot (\mathbf{x}_i'-H(v,\theta)\mathbf{x}_i) \\ n_i &=
+    (\mathrm{F}\mathbf{x}_i)_\perp 
   \end{split}
 \end{equation}
-Here $\mathrm{H}(v,\theta) = \mathrm{K'R(v,\theta)K^{-1}}$ and
-$(\mathrm{F}x_i)_\perp$ is the normal to the epipolar line.  In other
-words, we define the error to be orthogonal distance to the
-corresponding epipolar line.  We do so, because as
-\ref{eq:point_motion} suggests that after we compensate for a known
-rotation $\mathrm{R}$ we are still left with (small for distant
-points) displacements along corresponding epipolar lines.
+$\mathrm{H}(v,\theta) = \mathrm{K'R(v,\theta)K^{-1}}$ is the
+homography that transforms the image points in
+\ref{eq:general_point_motion}. It depends on a known camera intrinsic
+matrices $\mathrm{K,K}'$ and a rotation matrix $\mathrm{R}$.  We
+choose to parameterize rotation by angle $\theta$ and axis $v$.
+$\mathrm{F}$ denotes the fundamental matrix that corresponds to two
+subsequent stereo rig poses and is computed
+elsewhere. $\mathrm{F}\mathbf{x}_i$ denotes the epipolar line that
+corresponds to $\mathbf{x}_i$ in the second image and
+$(\mathrm{F}\mathbf{x}_i)_\perp$ is the normal this line.
 
-We minimize the sum of squared errors by means of Levenberg-Marquardt
-optimization algorithm. Rotations are parameterized by axis/angle
-representation and the optimization is over $v\cdot \theta$ which is
-simple to implement and fair \ref{?} . To make this procedure robust
-to outliers, we wrap it into RANSAC iterations.  Finally, we choose a
-rotation that has the largest support set.
+The statement of \ref{eq:refinement_objective} is: define the point
+residual as the orthogonal distance to the corresponding epipolar line
+and minimize sum of squared residuals for all points.  We do so,
+because as \ref{eq:general_point_motion} suggests, after we compensate
+for a known rotation $\mathrm{R}$ there still are displacements along
+the corresponding epipolar lines. We solve
+\ref{eq:refinement_objective} by means of Levenberg-Marquardt
+optimization algorithm.
+
+To make the estimation robust we wrap the initialization procedure
+into 500 RANSAC iterations.  We choose the strongest consensus
+estimate and its support set as inputs for the solution of
+\ref{eq:refinement_objective}.
 
 \paragraph{Translation Estimation} We apply translation estimation
 only to near-by points.  First, we triangulate these points in the
@@ -495,7 +554,7 @@ as 1-point algorithm in the literature [ref?]).
 We do not search for an initial estimate of $\mathbf{t}$ since the
 optimization procedure usually converges to a close enough solution.
 
-\subsection{Monocular setting}
+\subsection{A note on monocular setting}
 
 In this section we show how our algorithm may be adapted to monocular
 setting.

@@ -10,5 +10,9 @@ file1 = fullfile(seq_home, 'image_0', cur_file);
 file2 = fullfile(seq_home, 'image_1', cur_file);
 
 i1 = imread(file1);
-i2 = imread(file2);
+
+if nargout > 1
+    i2 = imread(file2);
+end
+
 end

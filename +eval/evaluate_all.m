@@ -1,15 +1,18 @@
-r_err = nan(3,8,10);
-t_err = nan(3,8,10);
+function evaluate_all(labels)
+
+n = length(labels);
+r_err = nan(n,8,10);
+t_err = nan(n,8,10);
+
 N=11;
-n = 3;
 for i = 1:N
     sequence = sprintf('%02d',i-1);
-    [r_err(:,:,i),t_err(:,:,i)] = eval.evaluate_odometry(sequence,{'results_150_4_500','results_depth150_in4_ransac500_mono1'},{'ss','HX'});
+    [r_err(:,:,i),t_err(:,:,i)] = eval.evaluate_odometry(sequence,labels,{'ss','HX'});
 end
 
 r_avg = nan(n,N);
 t_avg = nan(n,N);
-for i=1:11
+for i=1:N
     for j = 1:n
         r = r_err(:,:,i);
         r = mean(r(j,~isnan(r(j,:))));
@@ -44,7 +47,7 @@ input.data = r_avg;
 % Set column labels (use empty string for no label):
 input.tableColLabels = {'00','01','02','03','04','05','06','07','08','09','10','mean'};
 % Set row labels (use empty string for no label):
-input.tableRowLabels = {'SS','IO-S','IO-M'};
+input.tableRowLabels = {'SS','Fp','Mono','Stereo'};
 
 % Switch transposing/pivoting your table:
 input.transposeTable = 0;
@@ -103,7 +106,7 @@ input.data = t_avg;
 % Set column labels (use empty string for no label):
 input.tableColLabels = {'00','01','02','03','04','05','06','07','08','09','10','mean'};
 % Set row labels (use empty string for no label):
-input.tableRowLabels = {'SS','IO-S','IO-M'};
+input.tableRowLabels = {'SS','Fp','Mono','Stereo'};
 
 % Switch transposing/pivoting your table:
 input.transposeTable = 0;
@@ -141,7 +144,8 @@ input.tableLabel = 'fig:r_err';
 
 % call latexTable:
 latex2 = latexTable(input);
-fd = fopen('doc/eccv/t_err.tex','w+');
+fd = fopen('doc/eccv/t_err_%s.tex','w+');
 for i = 1:size(latex2,1)
     fprintf(fd,'%s\n',latex2{i,1});
+end
 end

@@ -1,6 +1,7 @@
 function [rotation_errors, translation_errors] = evaluate_odometry(sequence,res,algs)
 
 close all;
+dbstop if error;
 
 %set(groot,'defaultAxesColorOrder',[1 0 0;0 1 0;0 0 1],...
 %    'defaultAxesLineStyleOrder','-|--|:')
@@ -9,12 +10,26 @@ DATA_ROOT  = '/home/kreimer/KITTI/';
 have_ss  = 0;
 gt.poses = util.read_poses(fullfile(DATA_ROOT, 'dataset', 'poses', [sequence, '.txt']));    
 for j = 1:length(res)
+
     data = strrep(res{j},'results','data');
     path = fullfile(DATA_ROOT,data,sequence);
-    d = dir(path);
-    [x,y]=sort(datenum(char({d.date})));
+    d = dir(fullfile(path,'*.mat'));
+    [x,y] = sort(datenum(char({d.date})));
     most_recent_file=char(d(y(end)).name);
     load(fullfile(path,most_recent_file));
+
+    N = length(stats)-1;
+    success = nan(1,N);
+    for i=1:N;
+        try
+            success(i) = stats(i+1).HX.success;
+        catch % typo :(
+            success(i) = stats(i+1).HX.sucess;
+        end
+    end
+    success_rate = sum(success)/length(success);
+    fprintf('%s HX success rate %g\n', res{j}, success_rate);
+    
     for i = 1:length(algs)
         alg = algs{i};
         field = [res{j},'_',algs{i}];
@@ -92,8 +107,8 @@ print('-dpng','-r500',sprintf('top_path_%s', sequence));
 %clickableLegend(display);
 %legend(gca,'show');
 
-%lengths = [100,200,300,400,500,600,700,800];
-lengths = [10 ,20 ,30 ,40 ,50, 60 ,70 ,80 ];
+lengths = [100,200,300,400,500,600,700,800];
+%lengths = [10 ,20 ,30 ,40 ,50, 60 ,70 ,80 ];
 %lengths = [1,2,3];
 step_size = 10;
 
@@ -152,7 +167,7 @@ clickableLegend(leg);
 width = 16; % cm 
 height = 12; % cm
 set(gcf, 'PaperPosition', [0, 0, width / 2.54, height / 2.54])
-print('-dpng','-r500',sprintf('rotation_error_%s', sequence));
+print('-dpng','-r500',sprintf('rotation_error_%s',sequence));
 
 figure; hold on; title(sprintf('sequence %s: translation error', sequence));
 set(gca, 'LineStyleOrder', {'-', ':', '--', '-.'}); % different line styles
@@ -168,7 +183,7 @@ clickableLegend(leg);
 width = 16; % cm 
 height = 12; % cm
 set(gcf, 'PaperPosition', [0, 0, width / 2.54, height / 2.54])
-print('-dpng','-r500',sprintf('translation_error_%s', sequence));
+print('-dpng','-r500',sprintf('translation_error_%s',sequence));
 
 end
 

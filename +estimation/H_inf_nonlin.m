@@ -1,4 +1,4 @@
-function [H,R_out,inliers_out,residual_out] = H_inf_nonlin(K,x1,x2,varargin)
+function [H,R_out,inliers_out,residual_out] = H_inf_nonlin(K,x1,x2,mask,varargin)
 
 % x1 distant interest points in image 1
 % x2 distant interest points in image 2
@@ -7,7 +7,7 @@ function [H,R_out,inliers_out,residual_out] = H_inf_nonlin(K,x1,x2,varargin)
 % size(x1)=size(x2)=[2,N]
 p = inputParser;
 
-p.addOptional('absRotInit',false);
+p.addOptional('absRotInit',true);
 p.addOptional('F',[]);
 p.addOptional('inlier_thr',1,@isnumeric);
 p.addOptional('ransac_iter',500,@isnumeric);
@@ -58,10 +58,12 @@ end
 if ~isempty(p.Results.F)
     fun = @(vt) objective1(K,p.Results.F,x1(:,inliers_best),x2(:,inliers_best),vt);
 else
-    fun = @(vt) objective2(K,x1(:,inliers_best),x2(:,inliers_best),vt);
+    fun = @(vt) objective2(K,1e-2,x1(:,inliers_best),x2(:,inliers_best),vt);
 end
+
 opt = optimset(optimset('lsqnonlin') , 'Algorithm','levenberg-marquardt', 'Diagnostics','off', 'Display','off');
 [vt,resnorm,residual,exitflag] = lsqnonlin(fun,vt_best,[],[],opt);
+
 R = vrrotvec2mat(estimation.vtheta2r(vt));
 H = K*R/K;
 %fprintf('homography symm reprojection error RMS is %g\n',sqrt(d*d'/length(d)));
@@ -101,6 +103,7 @@ if norm(F)>1e-5
 else
     val = [util.colnorm(e1); util.colnorm(e2)]';
 end
+% val(end+1) = norm(H'*F+F'*H);
 end
 
 function val = objective2(K,x1,x2,vtheta)
@@ -164,5 +167,33 @@ if norm(F)>1e-5
 else
     val = [util.colnorm(e1); util.colnorm(e2)]';
 end
+
 end
 
+function val = objective4(K,lambda,x1,x2,p)
+
+% convert v*\theta into [v \theta]
+vtheta = p(1:3);
+vec = estimation.vtheta2r(vtheta);
+
+t = nan(3,1);
+t(1:2) = p(4:5);
+t(3) = 1-norm(t(1:2));
+
+n = nan(3,1);
+n(1:2) = p(6:7);
+n(3) = 1-norm(n(1:2));
+
+D = t*n';
+R = vrrotvec2mat(vec);
+
+% H_inf
+H = K*(R-lambda*D)/K;
+
+% residuals
+e1 = util.h2e(x2)-util.h2e(H*x1);
+e2 = util.h2e(x1)-util.h2e(H\x2);
+
+% objective value
+val = [util.colnorm(e1); util.colnorm(e2)]';
+end

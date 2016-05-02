@@ -6,9 +6,10 @@ dbstop if error;
 %set(groot,'defaultAxesColorOrder',[1 0 0;0 1 0;0 0 1],...
 %    'defaultAxesLineStyleOrder','-|--|:')
   
-DATA_ROOT  = '/home/kreimer/KITTI/';
+DATA_ROOT  = '/home/kreimer/KITTI';
 have_ss  = 0;
 gt.poses = util.read_poses(fullfile(DATA_ROOT, 'dataset', 'poses', [sequence, '.txt']));    
+DATA_ROOT = '/home/kreimer/KITTI/info';
 for j = 1:length(res)
 
     data = strrep(res{j},'results','data');

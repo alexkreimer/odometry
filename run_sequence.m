@@ -2,17 +2,20 @@ function run_sequence(sequence, varargin)
 close all
 dbstop if error;
 
-DATA_ROOT  = '/home/kreimer/KITTI/';
-KITTI_HOME = fullfile(DATA_ROOT, 'dataset');
+DATA_ROOT       = '/home/kreimer/KITTI/';
+%DATA_ROOT = '/media/kreimer/my_drive/odometry_data/';
+KITTI_HOME      = fullfile(DATA_ROOT, 'dataset');
+% minimal number of distant points; if there are less, run stereo scan
+NUM_DIST_THRESH = 10;
 
-image_dir  = fullfile(KITTI_HOME, 'sequences', sequence);
-poses_file = fullfile(KITTI_HOME, 'poses', [sequence, '.txt']);
+% input images dir
+image_dir       = fullfile(KITTI_HOME, 'sequences', sequence);
+
+% distance threshold in meters
+dist_thresh     = 50;
 
 D = dir(fullfile(image_dir, 'image_0','*.png'));
 default_last = length(D(not([D.isdir])))-1;
-
-% distance threshold in meters
-dist_thresh = 50;
 
 p = inputParser;
 p.addOptional('first',2,@isnumeric);
@@ -24,81 +27,56 @@ p.addOptional('sha','');
 p.addOptional('mono_left',0,@isnumeric);
 p.addOptional('mono_right',0,@isnumeric);
 p.addOptional('stereo',0,@isnumeric);
-p.addOptional('compute_rig_bias',0,@isnumeric);
-p.addOptional('correct_rig_bias',0,@isnumeric);
 p.addOptional('Fp',0,@isnumeric);
 p.addOptional('monomono',0,@isnumeric);
 
 p.KeepUnmatched = true;
 parse(p,varargin{:});
 
-% minimal number of distant points; if there are less, run stereo scan
-NUM_DIST_THRESH = 10;
+% output directories
+RESULT_DIR      = fullfile(DATA_ROOT, 'info', sprintf('results_%s', p.Results.sha));
+RESDATA_DIR     = fullfile(DATA_ROOT, 'info', sprintf(   'data_%s', p.Results.sha),sequence);
 
-if p.Results.mono_left
-    str = 'mono_left';
-elseif p.Results.mono_right
-    str = 'mono_right';
-elseif p.Results.stereo
-    str = 'stereo';
-elseif p.Results.monomono
-    str = 'monomono';
-else
-    error('you need to specify either mono_left or mono_right or stereo');
-end
+%if exist(RESDATA_DIR,'dir')
+%    system(['rm -fr ', RESDATA_DIR]);
+%end
+system(['mkdir -p ', fullfile(RESDATA_DIR)]);
 
-RESULT_DIR = fullfile(DATA_ROOT, sprintf('results_%s_depth%d_in%d_ransac%d_%s',p.Results.sha,p.Results.depth_thr,p.Results.inlier_thr,p.Results.ransac_iter,str));
-RESDATA_DIR= fullfile(DATA_ROOT, sprintf(   'data_%s_depth%d_in%d_ransac%d_%s',p.Results.sha,p.Results.depth_thr,p.Results.inlier_thr,p.Results.ransac_iter,str),sequence);
-if ~exist(RESDATA_DIR,'dir')
-    command = ['mkdir -p ', fullfile(RESDATA_DIR)];
-    system(command);
-end
+%if exist(RESULT_DIR, 'dir')
+%    system(['rm -fr ', RESULT_DIR]);       
+%end
+system(['mkdir -p ', fullfile(RESULT_DIR)]);
+
+C = cellfun(@num2str, struct2cell(p.Results), 'UniformOutput', false);
+C(:,2) = fieldnames(p.Results);
+T = cell2table(C,'VariableNames',{'Value','Name'});
+writetable(T,fullfile(RESDATA_DIR, 'params.dat'))
 
 % setup camera parameters (KITTI)
 [P0, P1] = util.kitti_read_calib(image_dir);
-poses_gt = util.read_poses(poses_file);
 param    = kitti_params(P0, P1);
 K = param.K;
 
-if p.Results.correct_rig_bias
-    load(sprintf('bias_%s', sequence));
-    H_bias = K*X/K;
-    vrrotmat2vec(X)
-end
-
-gt = process_gt(poses_gt);
-
-poses1 = nan(4, 4, p.Results.last);
-poses1(:,:,1) = inv([eye(3) zeros(3,1); 0 0 0 1]);
-poses2 = poses1;
-
 tracks = containers.Map('KeyType','uint64','ValueType','any');
-update_tracks(fullfile('/home/kreimer/KITTI/tracks',sequence, sprintf('%06d.txt',p.Results.first-2)), tracks);
-
-if p.Results.compute_rig_bias
-    dr = nan(4,100);
-end
+update_tracks(fullfile(DATA_ROOT, 'tracks', sequence, sprintf('%06d.txt',p.Results.first-2)), tracks);
 
 first = true;
-
 for i = p.Results.first:p.Results.last
     fprintf('processing frame %d of %d\n', i, p.Results.last);
     
     [i1, i2] = read_images(image_dir, i);
     [i1p,i2p]= read_images(image_dir, i-1);
-    
-    update_tracks(fullfile('/home/kreimer/KITTI/tracks',sequence,sprintf('%06d.txt',i-1)), tracks);
-    
+
+    update_tracks(fullfile(DATA_ROOT,'tracks',sequence,sprintf('%06d.txt',i-1)), tracks);
     coords2 = get_track_coords(tracks,2);
-    
     if ~first
         coords3 = get_track_coords(tracks, 3);
 
         % tracks of length 3
         if size(coords3, 3)
             tr3.x_ppv = permute(coords3(1:2,3,:), [1 3 2]);
-            tr3.x_prv = x1p;
-            tr3.x_cur = x1;
+            tr3.x_prv = permute(coords3(1:2,2,:), [1 3 2]);
+            tr3.x_cur = permute(coords3(1:2,1,:), [1 3 2]);
         else
             tr3.x_ppv = [];
         end
@@ -112,13 +90,8 @@ for i = p.Results.first:p.Results.last
     x2 = permute(coords2(3:4,1,:), [1 3 2]);
     [X,visible] = util.triangulate_chieral(x1,x2,param.P1,param.P2);
     
-    % in mono setting we can not rely on triangulatin to filter outliers,
-    % so we keep the original matches
-    tr2.x_prv = x1p;
-    tr2.x_cur = x1;
-    
     % save some stats
-    filename = fullfile(RESDATA_DIR,'stats.mat');
+    filename = fullfile(RESDATA_DIR, 'stats.mat');
     save(filename,'x1','x2','x1p','x2p','X','Xp','visible','visiblep','-v7.3');
     
     % use visibility constraint to filter wrong matches
@@ -129,6 +102,14 @@ for i = p.Results.first:p.Results.last
     x2p = x2p(:,visible);
     X   = X(:,visible);
     Xp  = Xp(:,visible);
+
+    % in mono setting we can not rely on triangulation to filter outliers,
+    % so we keep the original matches
+    tr2.x1_prv = x1p;
+    tr2.x2_prv = x2p;
+    
+    tr2.x1_cur = x1;
+    tr2.x2_cur = x2;
     
     disp('algorithm: reprojection minimization')
     tic;[a_ss, inliers,residual] = estimation.ransac_minimize_reproj(Xp, [x1; x2], param);toc;
@@ -139,18 +120,18 @@ for i = p.Results.first:p.Results.last
     disp('algorithm: IO');
     if p.Results.monomono
         if first
-            x_prv = tr2.x_prv;
-            x_cur = tr2.x_cur;
-            [mask, num_dist] = choose_distant_stereo(X, dist_thresh);
+            x_prv = tr2.x1_prv;
+            x_cur = tr2.x1_cur;
+            [mask, num_dist] = choose_distant_stereo(Xp, dist_thresh);
         else
             % no depth information available
-            x_prv = tr2.x_prv;
-            x_cur = tr2.x_cur;
+            x_prv = tr2.x1_prv;
+            x_cur = tr2.x1_cur;
             [mask, num_dist]  = choose_distant_mono(x_prv, x_cur, Hp, dist_thresh);
         end
     else
         tic;
-        [mask, num_dist] = choose_distant_stereo(X, dist_thresh);
+        [mask, num_dist] = choose_distant_stereo(Xp, dist_thresh);
         if p.Results.mono_left
             % mono emulation
             x_prv = x1p;
@@ -185,35 +166,67 @@ for i = p.Results.first:p.Results.last
         [Hp, R, ~, ~] = estimation.H_inf_nonlin(K,x_prv,x_cur,mask,'F',F,'absRotInit',true,...
                     'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
 
+        t = estimation.trans_geom(K, Hp, x_prv, x_cur);
+        t = t*norm(stats(i).ss.T(1:3,4));
+        stats(i).HG.T = [R -R*t; 0 0 0 1];
+        stats(i).HG.success = true;
+        
         if p.Results.monomono
             if first
                 t = stats(i).ss.T(1:3,4);
-                t = normc(t);
+                %t = normc(t);
             else
                 % previous motion estimates
-                Rp = stats(i-1).HX.R;
-                tp = stats(i-1).HX.t;
+                Tp = stats(i-1).HX.T;
+                
+                Rp = Tp(1:3,1:3);
+                tp = Tp(1:3,4);
                 
                 % compose camera matrices
                 P1 = K*[eye(3) zeros(3,1)];
                 P2 = K*[Rp tp];
                 
                 % triangulate points
-                [Xp, ~] = util.triangulate_chieral(tr3.x_ppv,tr3.x_prv,P1,P2);
+                [Xp, vis] = util.triangulate_chieral(tr3.x_ppv,tr3.x_prv,P1,P2);
+                
+                %imshow(i1p); hold on;
+                %x_prj = util.h2e(P2*util.e2h(Xp(:,vis)));
+                %plot([x_prj(1,:);tr3.x_prv(1,vis)], [x_prj(2,:);tr3.x_prv(2,vis)]);
+                
+                %showMatchedFeatures(i1,i1p,tr3.x_cur(:,vis(1:20))', tr3.x_prv(:,vis(1:20))', 'montage', 'PlotOptions', {'ro','g+','y-'});
                 
                 % minimize reprojection errors
-                [t,~,inliers] = estimation.ransac_minimize_reproj1(Xp, R, tr3.x_cur, param);
+                x_cur = tr3.x_cur(:,vis);
+                [t, predict, inliers] = estimation.ransac_minimize_reproj1(Xp(:,vis), R, x_cur, param);
+                T1 = [R t; 0 0 0 1];
+                T2 = [Rp tp; 0 0 0 1];
+                T = inv(T2)*T1;
+                t = T(1:3,4);
+                
+                % plot predicted vs. observed
+                imshow(i1);
+                hold on; title('predicted vs. observed for HX');
+                plot([x_cur(1,inliers); predict(1,inliers)], [x_cur(2,inliers); predict(2,inliers)], 'LineWidth', 2);
+                
+                % residuals histogram
+                figure;
+                dx = util.colnorm(predict(:,inliers) - x_cur(:, inliers));
+                hist(dx);
             end
         else
-            [t,~,inliers] = estimation.ransac_minimize_reproj1(Xp,R1,x1,x2,param);
+            [t,~,inliers] = estimation.ransac_minimize_reproj1(Xp,R,[x1;x2],param);
         end
         
         stats(i).HX.T = [R t; 0 0 0 1];
         stats(i).HX.inliers = inliers;
         stats(i).HX.success = true;
     else
+        % fall-back to HX
         stats(i).HX.T      = stats(i).ss.T;
         stats(i).HX.success= false;
+        
+        stats(i).HG.T      = stats(i).ss.T;
+        stats(i).HG.success= false;        
     end
     
     t = stats(i).HX.T(1:3,4);
@@ -222,16 +235,17 @@ for i = p.Results.first:p.Results.last
     
     toc;
     save(filename,'stats','-append');
+
     % convert all poses to be relative to the world origin and save
     fields = fieldnames(stats);
     for ii=1:length(fields)
         field = fields{ii};
-        poses = nan(4, 4, p.Results.last);
+        poses = nan(4, 4, i);
         poses(:,:,1) = [eye(3) zeros(3,1); 0 0 0 1];
         for j=2:i
-            TH = stats(j).(field).T;
-            poses(:,:,j) = poses(:,:,j-1)/TH;
-        end
+            pose = stats(j).(field).T;
+            poses(:,:,j) = poses(:,:,j-1)/pose;
+        end        
         directory = fullfile(RESULT_DIR, field);
         filename = fullfile(directory, 'data', [sequence, '.txt']);
         if ~exist(directory,'dir')
@@ -241,25 +255,7 @@ for i = p.Results.first:p.Results.last
         util.savePoses(filename, poses);
     end
     
-    if p.Results.Fp
-        first = false;
-    end
-end
-
-if p.Results.compute_rig_bias
-    dr(:,1) = [];
-    save(sprintf('deltas_%s_%s', sequence, p.Results.sha),'dr','-v7.3');
-    
-    dR = cell(1,size(dr,2));
-    for i=1:size(dr,2)
-        dR{i} = vrrotvec2mat(dr(:,i));
-    end
-    
-    sample = dr(3,:) < -.9;
-    fprintf('sample size: %d\n', sum(sample));
-    X = karcher_mean(dR(sample));
-    scatter(dr(1,:),dr(2,:));
-    save(sprintf('bias_%s_%s', sequence, p.Results.sha),'X','-v7.3');
+    first = false;
 end
 end
 

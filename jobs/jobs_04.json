@@ -1,17 +1,16 @@
 [
 {
-    "options": {"sha": "mono", "mono_left": 1, "stereo": 0, "compute_rig_bias": 0 },
+    "options": {"sha": "mono", "mono_left": 1 },
     "sequences": ["04"],
     "depths": [100],
     "inlier_thrs": [4],
     "ransac_iter": [500]
 },
 {
-    "options": {"sha": "Fp", "mono_left": 1, "stereo": 0, "compute_rig_bias": 0 ,"Fp": 1},
+    "options": {"sha": "Fp", "mono_left": 1, "Fp": 1},
     "sequences": ["04"],
     "depths": [100],
     "inlier_thrs": [4],
     "ransac_iter": [500]
 }
-
 ]

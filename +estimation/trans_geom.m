@@ -1,4 +1,4 @@
-function t = trans_geom(K,H,x1,x2)
+function t = trans_geom(K, H, x1, x2)
 % find epipole by fitting a pencil of epipolar lines throught the points
 % this code assumes pure camera translation, s.t. the features 'slide'
 % along the epipolar lines

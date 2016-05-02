@@ -14,10 +14,10 @@ det_param.corner_num = 4000;
 det_param.quality = .0001;
 ext_param.r = 3;
     
-match_param_t.r = 100;
+match_param_t.r = 200;
 match_param_t.search1d = true;
     
-match_param_f.r = 100;
+match_param_f.r = 200;
 match_param_f.search1d = false;
     
 track_param.show_debug = 0;
@@ -64,6 +64,7 @@ for seq_num = 1:length(sequences)
         if track_param.show_debug
             for j = 1:size(m12, 2)
                 showMatchedFeatures(i1, i2, c1(:, m12(1, j))', c2(:, m12(2, j))', 'montage');
+                legend show;
                 waitforbuttonpress;
             end
         end
@@ -95,11 +96,12 @@ for seq_num = 1:length(sequences)
             mt = prune_triangle(info_prv.m12, m11p, m12p, m12, m21);
             info.mt = mt;
             
-%             pt1  = info.c1(:, mt(1,:));
-%             pt2  = info.c2(:, mt(4,:));
-%             pt1p = info_prv.c1(:, mt(2,:));
-%             pt2p = info_prv.c2(:, mt(3,:));
-%             util.plot_triangles(i1, i2, info_prv.i1, info_prv.i2, pt1, pt2, pt1p, pt2p);
+%              pt1  = info.c1(:, mt(1,:));
+%              pt2  = info.c2(:, mt(4,:));
+%              pt1p = info_prv.c1(:, mt(2,:));
+%              pt2p = info_prv.c2(:, mt(3,:));
+%              util.plot_triangles(i1, i2, info_prv.i1, info_prv.i2, pt1, pt2, pt1p, pt2p);
+             
             tracks = feature.update_tracks(info,tracks);
             
             feature.save_tracks(fullfile(out_dir,sprintf('%06d.txt',i-1)),tracks,...

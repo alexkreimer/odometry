@@ -1,13 +1,13 @@
 function evaluate_all(labels)
 
-n = length(labels);
+n = 3;
 r_err = nan(n,8,10);
 t_err = nan(n,8,10);
 
 N=11;
 for i = 1:N
     sequence = sprintf('%02d',i-1);
-    [r_err(:,:,i),t_err(:,:,i)] = eval.evaluate_odometry(sequence,labels,{'ss','HX'});
+    [r_err(:,:,i),t_err(:,:,i)] = eval.evaluate_odometry(sequence,labels,{'ss','HX','HG'});
 end
 
 r_avg = nan(n,N);
@@ -47,7 +47,7 @@ input.data = r_avg;
 % Set column labels (use empty string for no label):
 input.tableColLabels = {'00','01','02','03','04','05','06','07','08','09','10','mean'};
 % Set row labels (use empty string for no label):
-input.tableRowLabels = {'SS','Fp','Mono','Stereo'};
+input.tableRowLabels = {'SS','HX','HG'};
 
 % Switch transposing/pivoting your table:
 input.transposeTable = 0;
@@ -85,7 +85,7 @@ input.tableLabel = 'fig:r_err';
 
 % call latexTable:
 latex1 = latexTable(input);
-fd = fopen('doc/eccv/r_err.tex','w+');
+fd = fopen('r_err.tex','w+');
 for i = 1:size(latex1,1)
     fprintf(fd,'%s\n',latex1{i,1});
 end
@@ -106,7 +106,7 @@ input.data = t_avg;
 % Set column labels (use empty string for no label):
 input.tableColLabels = {'00','01','02','03','04','05','06','07','08','09','10','mean'};
 % Set row labels (use empty string for no label):
-input.tableRowLabels = {'SS','Fp','Mono','Stereo'};
+input.tableRowLabels = {'SS','HX','HG'};
 
 % Switch transposing/pivoting your table:
 input.transposeTable = 0;
@@ -122,7 +122,7 @@ input.dataFormatMode = 'column'; % use 'column' or 'row'. if not set 'colum' is 
 % Please make sure the sum of numberOfValues_ matches the number of columns or
 % rows in input.tableData!
 %
-input.dataFormat = {'%.3g',12}; % three digits precision for first two columns, one digit for the last
+input.dataFormat = {'%.2e',12}; % three digits precision for first two columns, one digit for the last
 
 % Define how NaN values in input.tableData should be printed in the LaTex table:
 input.dataNanString = '-';
@@ -144,7 +144,7 @@ input.tableLabel = 'fig:r_err';
 
 % call latexTable:
 latex2 = latexTable(input);
-fd = fopen('doc/eccv/t_err_%s.tex','w+');
+fd = fopen('t_err.tex','w+');
 for i = 1:size(latex2,1)
     fprintf(fd,'%s\n',latex2{i,1});
 end

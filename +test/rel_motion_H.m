@@ -81,24 +81,28 @@ F = K'\util.skew(t_gt)*R_gt/K;
     
 figure;
 hold on;
-title(titl);
-scatter(x1(1,:),x1(2,:));
-scatter(x2(1,:),x2(2,:));
 
 e = util.h2e(null(F'));
 
-plot(e(1),e(2),'r*');
 
 H = K*R_gt/K;
 Hx1 = util.h2e(H*util.e2h(x1));
-scatter(Hx1(1,:),Hx1(2,:));
 
-legend('First image','Second image','epipole','Hx1: Homography transformed features');
+
 
 epilines = epipolarLine(F,x1');
-points = lineToBorderPoints(epilines, [800 1241]);
-line(points(:, [1,3])', points(:, [2,4])');
-% print('-depsc','-tiff','feature_motion')
+points = lineToBorderPoints(epilines, [2500 2500]);
+line(points(:, [1,3])', points(:, [2,4])', 'LineWidth',2);
+h1 = scatter(Hx1(1,:),Hx1(2,:), 40, 'filled');
+h2 = scatter(x1(1,:),x1(2,:), 40, 'filled');
+h3 = scatter(x2(1,:),x2(2,:), 40, 'filled');
+h4 = plot(e(1),e(2),'r*');
+
+legend([h2, h3, h4, h1], {'x','x''','Epipole','Hx'});
+
+print('-depsc','-tiff','feature_motion_far')
+return;
+
 for i=1:N
     fprintf('experiment %d\n', i);
     
@@ -113,16 +117,15 @@ for i=1:N
         x2 = x2 + 2*randn(size(x2));
     end
 
-
     disp(names{1});
     save('R','R_gt');
-    tic;[T, ~] = estimation.rel_motion_H(K,x1,x2,X(3,:),1,100,'absRotInit',true);toc;
+    tic;[T, ~] = estimation.rel_motion_H(K,x1,x2,X(3,:),1,'depth_thr',100,'absRotInit',true);toc;
     R = T(1:3,1:3);
     e(:,i,1) = util.h2e(K*t_gt);
     r(:,i,1) = reshape(R,[9 1]);
 
     disp(names{2});
-    tic;[T, ~] = estimation.rel_motion_H(K,x1,x2,X(3,:),1,100,'absRotInit',false);toc;
+    tic;[T, ~] = estimation.rel_motion_H(K,x1,x2,X(3,:),1,'depth_thr',100,'absRotInit',false);toc;
     R = T(1:3,1:3);
     %e(:,i,2) = util.h2e(K*T(1:3,4));
     e(:,i,2) = util.h2e(K*t_gt);
@@ -150,7 +153,7 @@ end
 subplot(232); hold on;
 title('epipole worst relative error');
 for j=1:n
-    plot(rel_error(1,:,j)','DisplayName', sprintf('x-%s',names{j}));
+    plot(rel_error(1,:,j)','DisplayName', sprintf('x-%s',names{j}), 'LineWidth', 5);
 end
 legend show;
 

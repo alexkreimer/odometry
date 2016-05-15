@@ -17,19 +17,23 @@ for j = 1:length(res)
     d = dir(fullfile(path,'*.mat'));
     [x,y] = sort(datenum(char({d.date})));
     most_recent_file=char(d(y(end)).name);
-    load(fullfile(path,most_recent_file));
-
-    N = length(stats)-1;
-    success = nan(1,N);
-    for i=1:N;
-        try
-            success(i) = stats(i+1).HX.success;
-        catch % typo :(
-            success(i) = stats(i+1).HX.sucess;
+    try
+        load(fullfile(path,most_recent_file));
+        
+        N = length(stats)-1;
+        success = nan(1,N);
+        for i=1:N;
+            try
+                success(i) = stats(i+1).HX.success;
+            catch % typo :(
+                success(i) = stats(i+1).HX.sucess;
+            end
         end
+        success_rate = sum(success)/length(success);
+        fprintf('%s HX success rate %g\n', res{j}, success_rate);
+    catch
+        ;
     end
-    success_rate = sum(success)/length(success);
-    fprintf('%s HX success rate %g\n', res{j}, success_rate);
     
     for i = 1:length(algs)
         alg = algs{i};

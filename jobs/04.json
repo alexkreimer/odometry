@@ -1,0 +1,9 @@
+[
+{
+    "options": {"sha": "mono_kuku", "mono": 1 },
+    "sequences": ["04"],
+    "depths": [100],
+    "inlier_thrs": [4],
+    "ransac_iter": [500]
+}
+]

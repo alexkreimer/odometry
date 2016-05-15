@@ -24,10 +24,8 @@ p.addOptional('depth_thr',100,@isnumeric);
 p.addOptional('inlier_thr',1,@isnumeric);
 p.addOptional('ransac_iter',2,@isnumeric);
 p.addOptional('sha','');
-p.addOptional('mono_left',0,@isnumeric);
-p.addOptional('mono_right',0,@isnumeric);
+p.addOptional('mono',0,@isnumeric);
 p.addOptional('stereo',0,@isnumeric);
-p.addOptional('Fp',0,@isnumeric);
 p.addOptional('monomono',0,@isnumeric);
 
 p.KeepUnmatched = true;
@@ -64,8 +62,8 @@ first = true;
 for i = p.Results.first:p.Results.last
     fprintf('processing frame %d of %d\n', i, p.Results.last);
     
-    [i1, i2] = read_images(image_dir, i);
-    [i1p,i2p]= read_images(image_dir, i-1);
+    [i1,  i2] = read_images(image_dir, i);
+    [i1p, i2p]= read_images(image_dir, i-1);
 
     update_tracks(fullfile(DATA_ROOT,'tracks',sequence,sprintf('%06d.txt',i-1)), tracks);
     coords2 = get_track_coords(tracks,2);
@@ -118,105 +116,41 @@ for i = p.Results.first:p.Results.last
     stats(i).ss.residual         = {residual};
     
     disp('algorithm: IO');
+    tic
     if p.Results.monomono
-        if first
-            x_prv = tr2.x1_prv;
-            x_cur = tr2.x1_cur;
-            [mask, num_dist] = choose_distant_stereo(Xp, dist_thresh);
-        else
-            % no depth information available
-            x_prv = tr2.x1_prv;
-            x_cur = tr2.x1_cur;
-            [mask, num_dist]  = choose_distant_mono(x_prv, x_cur, Hp, dist_thresh);
-        end
+        [mask, num_dist]  = choose_distant_mono(tr2, K);
+        x_prv = tr2.x1_prv(:, mask);
+        x_cur = tr2.x1_cur(:, mask);
     else
-        tic;
         [mask, num_dist] = choose_distant_stereo(Xp, dist_thresh);
-        if p.Results.mono_left
+        if p.Results.mono
             % mono emulation
             x_prv = x1p;
-            x_cur = x1;
-        elseif p.Results.mono_right
-            x_prv = x2p;
             x_cur = x1;
         elseif p.Results.stereo
             x_prv = [x1p x2p];
             x_cur = [x1 x2];
         else
-            error('you need to specify either mono_left or mono_right or stereo');
+            error('you need to specify either monomono/mono/stereo');
         end
     end
     
     if num_dist >= NUM_DIST_THRESH
         % SS computed fundamental
-        F1 = trans2fund(stats(i).ss.T, K);
-
-        % choose fundametal to use for the rotation estimation
-        if p.Results.Fp
-            if first
-                F = F1;
-            else
-                F = Fp;
-            end
-        else
-            F = F1;
-        end
+        F = trans2fund(stats(i).ss.T, K);
 
         % estimate rotation
-        [Hp, R, ~, ~] = estimation.H_inf_nonlin(K,x_prv,x_cur,mask,'F',F,'absRotInit',true,...
-                    'inlier_thr',p.Results.inlier_thr,'ransac_iter',p.Results.ransac_iter);
+        [Hp, R, ~, ~] = estimation.H_inf_nonlin(K, x_prv, x_cur, mask, 'F', F, 'absRotInit', true,...
+                    'inlier_thr', p.Results.inlier_thr, 'ransac_iter', p.Results.ransac_iter);
 
+        % epipole fit
         t = estimation.trans_geom(K, Hp, x_prv, x_cur);
         t = t*norm(stats(i).ss.T(1:3,4));
         stats(i).HG.T = [R -R*t; 0 0 0 1];
         stats(i).HG.success = true;
-        
-        if p.Results.monomono
-            if first
-                t = stats(i).ss.T(1:3,4);
-                %t = normc(t);
-            else
-                % previous motion estimates
-                Tp = stats(i-1).HX.T;
-                
-                Rp = Tp(1:3,1:3);
-                tp = Tp(1:3,4);
-                
-                % compose camera matrices
-                P1 = K*[eye(3) zeros(3,1)];
-                P2 = K*[Rp tp];
-                
-                % triangulate points
-                [Xp, vis] = util.triangulate_chieral(tr3.x_ppv,tr3.x_prv,P1,P2);
-                
-                %imshow(i1p); hold on;
-                %x_prj = util.h2e(P2*util.e2h(Xp(:,vis)));
-                %plot([x_prj(1,:);tr3.x_prv(1,vis)], [x_prj(2,:);tr3.x_prv(2,vis)]);
-                
-                %showMatchedFeatures(i1,i1p,tr3.x_cur(:,vis(1:20))', tr3.x_prv(:,vis(1:20))', 'montage', 'PlotOptions', {'ro','g+','y-'});
-                
-                % minimize reprojection errors
-                x_cur = tr3.x_cur(:,vis);
-                [t, predict, inliers] = estimation.ransac_minimize_reproj1(Xp(:,vis), R, x_cur, param);
-                T1 = [R t; 0 0 0 1];
-                T2 = [Rp tp; 0 0 0 1];
-                T = inv(T2)*T1;
-                t = T(1:3,4);
-                
-                % plot predicted vs. observed
-                imshow(i1);
-                hold on; title('predicted vs. observed for HX');
-                plot([x_cur(1,inliers); predict(1,inliers)], [x_cur(2,inliers); predict(2,inliers)], 'LineWidth', 2);
-                
-                % residuals histogram
-                figure;
-                dx = util.colnorm(predict(:,inliers) - x_cur(:, inliers));
-                hist(dx);
-            end
-        else
-            [t,~,inliers] = estimation.ransac_minimize_reproj1(Xp,R,[x1;x2],param);
-        end
-        
+
+        % 1-point
+        [t,~,inliers] = estimation.ransac_minimize_reproj1(Xp,R,[x1;x2],param);
         stats(i).HX.T = [R t; 0 0 0 1];
         stats(i).HX.inliers = inliers;
         stats(i).HX.success = true;
@@ -351,16 +285,29 @@ t1 = T1(1:3,4);
 F  = K'\util.skew(t1)*R/K;
 end
 
+function [mask_distant, num_dist] = choose_distant_mono(tr2, K)
+    % constant threshold
+    P1 = K*[eye(3) zeros(3,1)];
+    P2 = K*[eye(3) [1 0 0]'];
 
-function [mask, num_dist] = choose_distant_mono(x_prv, x_cur, Hp, thresh)
-    Hx_prv = util.h2e(Hp*util.e2h(x_prv));
+    x1 = tr2.x1_prv;
+    x2 = tr2.x1_cur;
+    [X, ~] = util.triangulate_chieral(x1,x2,P1,P2);
+
+    mask_visible = X(3,:)<1e3 | X(3,:)>0;
     
-    delta = util.colnorm(Hx_prv-x_cur);
-    mask = delta<thresh;
+    mask_distant = mask_visible & X(3,:)>200;
+    num_dist = sum(mask_distant);
     
-    if nargout > 1
-        num_dist = sum(mask);
-    end
+%     good = find(mask_distant);
+%     good = good(randperm(length(good)));
+%     showMatchedFeatures(i1p, i1, x1(:, good(1:10))', x2(:, good(1:10))', 'montage', 'PlotOptions', {'ro','g+','y-'});
+%     
+%     figure;
+%     subplot(211);
+%     semilogy(sort(X(3,:)));
+%     subplot(212);
+%     semilogy(sort(X(3,good)));
 end
 
 function [mask, num_dist] = choose_distant_stereo(X, thresh)
